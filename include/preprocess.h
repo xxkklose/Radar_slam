@@ -9,8 +9,9 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include "nuscenes2bag/RadarObject.h"
-#include "nuscenes2bag/RadarObjects.h"
+// using nuScenes dataset
+// #include "nuscenes2bag/RadarObject.h"
+// #include "nuscenes2bag/RadarObjects.h"
 /*
 geometry_msgs/Vector3 pose：物体的位置信息，通常包括X、Y和Z坐标。
 

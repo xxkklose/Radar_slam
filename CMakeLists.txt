@@ -8,7 +8,6 @@ find_package(catkin REQUIRED COMPONENTS
     rospy
     roscpp
     std_msgs
-    nuscenes2bag
 )
 
 find_package(Eigen3 REQUIRED)
