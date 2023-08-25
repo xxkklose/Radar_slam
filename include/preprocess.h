@@ -2,6 +2,7 @@
 #ifndef PREPROCESS_H
 #define PREPROCESS_H
 
+#include <string>
 #include <ros/ros.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -42,14 +43,33 @@ typedef pcl::PointCloud<PointType> PointCloud;
 
 class Preprocess{
 public:
+    //for mulran or oxford dataset
+    std::string seq_dir_;
+    std::vector<std::string> radar_files_;
 
-    PointCloud input_cloud;
-    int point_num;
+    PointCloud input_cloud_;
+    int point_num_;
+    
+    // TODO: use different method (0. visual surpport 1. radar only 2. Deep learning)
+    int method_ = 1;
 
     Preprocess();
     ~Preprocess();
 
+    /*
+    * @brief: check if the file exists
+    */
+    inline bool exists(const std::string& name);
+    /*
+    * @brief: get the radar file from the directory
+    * @param: seq_dir: the directory of the radar file
+    * @param: extension: the extension of the radar file
+    */
+    void getRadarFileFormDir(std::string seq_dir, std::string extension);
+
 };
+
+
 
 
 

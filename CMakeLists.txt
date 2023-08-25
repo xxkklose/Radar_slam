@@ -24,7 +24,7 @@ catkin_package(
     INCLUDE_DIRS
 )
 
-add_executable(radar_slam 
-    src/main.cpp
+add_executable(radarOdometry 
+    src/radarOdometry.cpp
     src/preprocess.cpp)
-target_link_libraries(radar_slam ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(radarOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES})

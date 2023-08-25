@@ -1,0 +1,14 @@
+<launch>
+    
+    <!-- update your path  <Dataset>/polar_oxford_form/ -->
+    <param name="seq_dir" type="string" 
+        value="/media/psf/Home/Downloads/data_bag/mulran/KAIST02/polar_oxford_form/" />
+    
+    <node pkg="radar_slam" type="radarOdometry" name="radarOdometry" output="screen" />
+
+    <!-- <arg name="rviz" default="true" />
+    <group if="$(arg rviz)">
+        <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find yeti)/rviz/yeti_pgo_rviz.rviz" />
+    </group> -->
+
+</launch>
