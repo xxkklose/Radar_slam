@@ -9,11 +9,6 @@ std::ofstream debug_log;
 ros::Subscriber sub_radar;
 ros::Publisher pub_radar;
 
-void radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg){
-
-}
-
-
 void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg){
     //for debug
     // if (debug_log.is_open())
@@ -43,6 +38,10 @@ void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg){
     pub_radar.publish(radar_cloud_msg);
 }
 
+void radar3Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg){
+
+}
+
 int main(int argc, char  **argv)
 {
     ros::init(argc, argv, "radarOdometry");
@@ -55,17 +54,21 @@ int main(int argc, char  **argv)
     //for debug
     debug_log.open("debug_log.txt", std::ios::app);
 
-    if (preprocess.dataset_type_ == "mulran")
+    if (preprocess.dataset_type_ == "nuScenes_dataset")
     {
-        sub_radar = nh.subscribe<nuscenes2bag::RadarObjects>("/radar/points", 10, radar1Callback);
-        preprocess.getRadarFileFormDir(preprocess.seq_dir_, "png");
-        std::cout << "radar file size: " << preprocess.radar_files_.size() << std::endl;
+        
     }else if(preprocess.dataset_type_ == "4D_Radar_SLAM_dataset")
     {
         sub_radar = nh.subscribe<msgs_radar::RadarScanExtended>("/radar_scan", 10, radar2Callback);
+    }else if(preprocess.dataset_type_ == "mulran")
+    {
+        sub_radar = nh.subscribe<nuscenes2bag::RadarObjects>("/radar/points", 10, radar3Callback);
+        preprocess.getRadarFileFormDir(preprocess.seq_dir_, "png");
+        std::cout << "radar file size: " << preprocess.radar_files_.size() << std::endl;
     }else
     {
-        std::cout << "Please input the correct data type!" << std::endl;
+        ROS_ERROR("input dataset type error!");
+        return -1;
     }
 
     while(ros::ok())

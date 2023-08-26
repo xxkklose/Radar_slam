@@ -9,7 +9,7 @@ This is a radar slam project which has so much work to do.
 - Use mulran [ROS player](https://github.com/irapkaist/file_player_mulran) to paly dataset
 
 ### 4D Radar Dataset 
-- SJTU present a novel SLAM dataset containing 4D radar data, LiDAR data and ground truth. It covers different challenging scenes. To the best of our knowledge, there are limited public automotive datasets incorporating 4D radars. [DOWNLOAD](https://robotics.sjtu.edu.cn/upload/file/dataset/4d_radar_dataset/4D_radar_dataset.zip)
+- SJTU present a novel [SLAM dataset](https://robotics.sjtu.edu.cn/xwxshd/1184.html) containing 4D radar data, LiDAR data and ground truth. It covers different challenging scenes. [DOWNLOAD](https://robotics.sjtu.edu.cn/upload/file/dataset/4d_radar_dataset/4D_radar_dataset.zip)
 
 - Before use this dataset, you should add an additional message package named [msgs_radar](https://github.com/xxkklose/msgs_radar) to your workspace.
 
