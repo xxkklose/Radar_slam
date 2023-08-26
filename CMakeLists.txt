@@ -8,6 +8,9 @@ find_package(catkin REQUIRED COMPONENTS
     rospy
     roscpp
     std_msgs
+    msgs_radar
+    message_generation
+    nuscenes2bag
 )
 
 find_package(Eigen3 REQUIRED)
@@ -18,8 +21,11 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
+
+message(STATUS "catkin_INCLUDE_DIRS: ${catkin_INCLUDE_DIRS}")
+
 catkin_package(
-    CATKIN_DEPENDS roscpp rospy std_msgs nuscenes2bag
+    CATKIN_DEPENDS roscpp rospy std_msgs message_generation nuscenes2bag
     DEPENDS EIGEN3 PCL
     INCLUDE_DIRS
 )
@@ -28,3 +34,4 @@ add_executable(radarOdometry
     src/radarOdometry.cpp
     src/preprocess.cpp)
 target_link_libraries(radarOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+# add_dependencies(radarOdometry ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
