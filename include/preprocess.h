@@ -4,11 +4,17 @@
 
 #include <string>
 #include <ros/ros.h>
+#include <Eigen/Eigen>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/NavSatFix.h>
+#include <geometry_msgs/PoseStamped.h>
+
 
 // using nuScenes dataset
 #include "nuscenes2bag/RadarObject.h"
@@ -94,13 +100,24 @@ float32 std_dev_rcs
 
 typedef pcl::PointXYZI PointType;
 typedef pcl::PointCloud<PointType> PointCloud;
+using namespace std;
+using namespace Eigen;
 
 class Preprocess{
 public:
+
+    std::string dataset_type_;
     //for mulran or oxford dataset
     std::string seq_dir_;
     std::vector<std::string> radar_files_;
-    std::string dataset_type_;
+
+    //for GPS data
+    Vector3d gps_origin_;
+    bool init_gps_ = false;
+
+    //for groudtruth data
+    Vector3d groundtruth_origin_;
+    bool init_groundtruth_ = false;
 
     PointCloud input_cloud_;
     int point_num_;
@@ -121,6 +138,15 @@ public:
     * @param: extension: the extension of the radar file
     */
     void getRadarFileFormDir(std::string seq_dir, std::string extension);
+
+    /*
+    * @brief: GPS data to UTM
+    * @param: longitude: the longitude of the GPS data
+    * @param: latitude: the latitude of the GPS data
+    * @param: UTME: the UTM easting of the GPS data
+    * @param: UTMN: the UTM northing of the GPS data
+    */
+    void LonLat2UTM(double longitude, double latitude, double& UTME, double& UTMN);
 
 };
 

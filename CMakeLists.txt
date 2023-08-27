@@ -19,10 +19,11 @@ find_package(PCL REQUIRED)
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
 )
 
 
-message(STATUS "catkin_INCLUDE_DIRS: ${catkin_INCLUDE_DIRS}")
+message(Eigen: ${EIGEN3_INCLUDE_DIRS})
 
 catkin_package(
     CATKIN_DEPENDS roscpp rospy std_msgs message_generation nuscenes2bag

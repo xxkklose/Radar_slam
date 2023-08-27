@@ -14,5 +14,9 @@
     </group>
 
     <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Campus_1/campus1.bag" />
+    <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Parking_lot/parking_lot.bag" /> -->
+    <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Campus_2/campus2.bag" /> -->
+    <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Campus_3/campus3.bag" /> -->
+    <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Campus_4/campus4.bag" /> -->
 
 </launch>
