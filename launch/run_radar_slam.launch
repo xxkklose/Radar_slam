@@ -5,6 +5,10 @@
         value="/media/psf/Home/Downloads/data_bag/mulran/KAIST02/polar_oxford_form/" />
     <!-- dataset_type "nuScenes_dataset" "4D_Radar_SLAM_dataset" "mulran"  -->
     <param name="dataset_type" type="string" value="4D_Radar_SLAM_dataset" />
+
+    <param name="keyframe_delta_trans" type="double" value="0.25" />
+    <param name="keyframe_delta_angle" type="double" value="0.15" />
+    <param name="keyframe_delta_time" type="double" value="1.0" />
     
     <node pkg="radar_slam" type="radarOdometry" name="radarOdometry" output="screen" />
 

@@ -96,8 +96,11 @@ void Preprocess::radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& m
         point.x = msg->targets[i].range * cos(msg->targets[i].elevation) * cos(msg->targets[i].azimuth);
         point.y = msg->targets[i].range * cos(msg->targets[i].elevation) * sin(msg->targets[i].azimuth);
         point.z = msg->targets[i].range * sin(msg->targets[i].elevation);
-        point.intensity = msg->targets[i].power;
+        point.intensity = msg->targets[i].snr;
         radar_cloud->points.push_back(point);
+
+        std::cout << "target.snr: " << msg->targets[i].snr << std::endl;
+        std::cout << "target.power: " << msg->targets[i].power << std::endl;
     }
 
     sensor_msgs::PointCloud2 radar_cloud_msg;
@@ -123,7 +126,7 @@ void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
         gps_origin_.z() = msg->altitude;
         gps_point.pose.position.x = 0;
         gps_point.pose.position.y = 0;
-        gps_point.pose.position.z = 0;
+        gps_point.pose.position.z = msg->altitude;
         path_.poses.push_back(gps_point);
         return;
     }
@@ -131,7 +134,7 @@ void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
     LonLat2UTM(msg->longitude, msg->latitude, UTME, UTMN);
     gps_point.pose.position.x = UTME - gps_origin_.x();
     gps_point.pose.position.y = UTMN - gps_origin_.y();
-    gps_point.pose.position.z = msg->altitude - gps_origin_.z();
+    gps_point.pose.position.z = msg->altitude;
 
     path_.poses.push_back(gps_point);
 
@@ -151,7 +154,7 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
         groundtruth_origin_.z() = msg->pose.pose.position.z;
         gps_point.pose.position.x = 0;
         gps_point.pose.position.y = 0;
-        gps_point.pose.position.z = 0;
+        gps_point.pose.position.z = msg->pose.pose.position.z;
         gps_point.pose.orientation.x = msg->pose.pose.orientation.x;
         gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
         gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
@@ -164,7 +167,7 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
 
     gps_point.pose.position.x = msg->pose.pose.position.x - groundtruth_origin_.x();
     gps_point.pose.position.y = msg->pose.pose.position.y - groundtruth_origin_.y();
-    gps_point.pose.position.z = msg->pose.pose.position.z - groundtruth_origin_.z();
+    gps_point.pose.position.z = msg->pose.pose.position.z;
     gps_point.pose.orientation.x = msg->pose.pose.orientation.x;
     gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
     gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
