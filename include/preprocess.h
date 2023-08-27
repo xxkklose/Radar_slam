@@ -98,8 +98,8 @@ float32 std_dev_elevationAngle
 float32 std_dev_rcs
 */
 
-typedef pcl::PointXYZI PointType;
-typedef pcl::PointCloud<PointType> PointCloud;
+typedef pcl::PointXYZI PointT;
+typedef pcl::PointCloud<PointT> PointCloud;
 using namespace std;
 using namespace Eigen;
 
@@ -119,7 +119,7 @@ public:
     Vector3d groundtruth_origin_;
     bool init_groundtruth_ = false;
 
-    PointCloud input_cloud_;
+    PointCloud curr_cloud_;
     int point_num_;
     
     // TODO: use different method (0. visual surpport 1. radar only 2. Deep learning)
@@ -147,6 +147,23 @@ public:
     * @param: UTMN: the UTM northing of the GPS data
     */
     void LonLat2UTM(double longitude, double latitude, double& UTME, double& UTMN);
+
+    void initParams(ros::NodeHandle& nh);
+
+    void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg);
+    void groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg);
+    void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg);
+    void radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg);
+
+private: 
+    ros::Subscriber sub_radar_;
+    ros::Subscriber sub_gps_;
+    ros::Subscriber sub_groundtruth_;
+    ros::Publisher pub_radar_;
+    ros::Publisher pub_gps_path_;
+    ros::Publisher pub_groundtruth_path_;
+    nav_msgs::Path path_; 
+    nav_msgs::Path path_groundtruth_;
 
 };
 

@@ -83,6 +83,111 @@ void Preprocess::LonLat2UTM(double longitude, double latitude, double& UTME, dou
 	UTMN = N;
 }
 
+void Preprocess::radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg){
+
+}
+
+void Preprocess::radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg){
+    PointCloud::Ptr radar_cloud(new PointCloud());
+
+    for (int i = 0; i < msg->targets.size(); i++)
+    {
+        PointT point;
+        point.x = msg->targets[i].range * cos(msg->targets[i].elevation) * cos(msg->targets[i].azimuth);
+        point.y = msg->targets[i].range * cos(msg->targets[i].elevation) * sin(msg->targets[i].azimuth);
+        point.z = msg->targets[i].range * sin(msg->targets[i].elevation);
+        point.intensity = msg->targets[i].power;
+        radar_cloud->points.push_back(point);
+    }
+
+    sensor_msgs::PointCloud2 radar_cloud_msg;
+    pcl::toROSMsg(*radar_cloud, radar_cloud_msg);
+    radar_cloud_msg.header.frame_id = "odom";
+    radar_cloud_msg.header.stamp = msg->header.stamp;
+    pub_radar_.publish(radar_cloud_msg);
+}
+
+
+void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
+    geometry_msgs::PoseStamped gps_point;
+    gps_point.header.frame_id = "odom";
+    gps_point.header.stamp = msg->header.stamp;
+    double UTME, UTMN;
+    
+    if(!init_gps_)
+    {
+        init_gps_ = true;
+        LonLat2UTM(msg->longitude, msg->latitude, UTME, UTMN);
+        gps_origin_.x() = UTME;
+        gps_origin_.y() = UTMN;
+        gps_origin_.z() = msg->altitude;
+        gps_point.pose.position.x = 0;
+        gps_point.pose.position.y = 0;
+        gps_point.pose.position.z = 0;
+        path_.poses.push_back(gps_point);
+        return;
+    }
+
+    LonLat2UTM(msg->longitude, msg->latitude, UTME, UTMN);
+    gps_point.pose.position.x = UTME - gps_origin_.x();
+    gps_point.pose.position.y = UTMN - gps_origin_.y();
+    gps_point.pose.position.z = msg->altitude - gps_origin_.z();
+
+    path_.poses.push_back(gps_point);
+
+    path_.header.frame_id = "odom";
+    path_.header.stamp = ros::Time::now();
+
+    pub_gps_path_.publish(path_);
+}
+
+void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
+    geometry_msgs::PoseStamped gps_point;
+    if(init_groundtruth_ == false)
+    {
+        init_groundtruth_ = true;
+        groundtruth_origin_.x() = msg->pose.pose.position.x;
+        groundtruth_origin_.y() = msg->pose.pose.position.y;
+        groundtruth_origin_.z() = msg->pose.pose.position.z;
+        gps_point.pose.position.x = 0;
+        gps_point.pose.position.y = 0;
+        gps_point.pose.position.z = 0;
+        gps_point.pose.orientation.x = msg->pose.pose.orientation.x;
+        gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
+        gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
+        gps_point.pose.orientation.w = msg->pose.pose.orientation.w;
+        gps_point.header.frame_id = "odom";
+        gps_point.header.stamp = msg->header.stamp;
+        path_groundtruth_.poses.push_back(gps_point);
+        return;
+    }
+
+    gps_point.pose.position.x = msg->pose.pose.position.x - groundtruth_origin_.x();
+    gps_point.pose.position.y = msg->pose.pose.position.y - groundtruth_origin_.y();
+    gps_point.pose.position.z = msg->pose.pose.position.z - groundtruth_origin_.z();
+    gps_point.pose.orientation.x = msg->pose.pose.orientation.x;
+    gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
+    gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
+    gps_point.pose.orientation.w = msg->pose.pose.orientation.w;
+    gps_point.header.frame_id = "odom";
+    gps_point.header.stamp = msg->header.stamp;
+    path_groundtruth_.poses.push_back(gps_point);
+
+    path_groundtruth_.header.frame_id = "odom";
+    path_groundtruth_.header.stamp = ros::Time::now();
+
+    pub_groundtruth_path_.publish(path_groundtruth_);
+}
+
+void Preprocess::initParams(ros::NodeHandle& nh){
+    sub_radar_ = nh.subscribe<msgs_radar::RadarScanExtended>("/radar_scan", 10,  boost::bind(&Preprocess::radar2Callback, this, _1));
+    sub_gps_ = nh.subscribe<sensor_msgs::NavSatFix>("/gps/fix", 10, boost::bind(&Preprocess::gpsCallback, this, _1));
+    sub_groundtruth_ = nh.subscribe<nav_msgs::Odometry>("/ground_truth", 10, boost::bind(&Preprocess::groundtruthCallback, this, _1));
+    pub_gps_path_ = nh.advertise<nav_msgs::Path>("/gps/path", 10);
+    pub_groundtruth_path_ = nh.advertise<nav_msgs::Path>("/groundtruth/path", 10);
+    pub_radar_ = nh.advertise<sensor_msgs::PointCloud2>("/radar_pointcloud2", 10);
+}
+
 Preprocess::Preprocess() : point_num_(0)
 {
     std::cout << "Preprocess constructor called!" << std::endl;
