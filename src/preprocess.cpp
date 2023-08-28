@@ -1,10 +1,44 @@
-#include "preprocess.h"
+#include "radarTypes.h"
+using namespace RadarTypes;
+using namespace ulit;
+bool Preprocess::initParams(ros::NodeHandle& nh){
+    if (dataset_type_ == "nuScenes_dataset")
+    {
+        //TODO : add nuScenes dataset
+        sub_radar_ = nh.subscribe<nuscenes2bag::RadarObjects>("/radar_scan", 10,  boost::bind(&Preprocess::radar1Callback, this, _1));
+    }else if(dataset_type_ == "4D_Radar_SLAM_dataset")
+    {
+        sub_radar_ = nh.subscribe<msgs_radar::RadarScanExtended>("/radar_scan", 10,  boost::bind(&Preprocess::radar2Callback, this, _1));
+    }else if(dataset_type_ == "mulran")
+    {
+        //TODO : add mulran dataset
+        if(!getRadarFileFormDir(seq_dir_, "png")) 
+        {
+            ROS_ERROR("radar file empty!");
+            return false;
+        }
+        std::cout << "radar file size: " << radar_files_.size() << std::endl;
+    }else
+    {
+        ROS_ERROR("input dataset type error!");
+        return false;
+    }
+
+    sub_gps_ = nh.subscribe<sensor_msgs::NavSatFix>("/gps/fix", 10, boost::bind(&Preprocess::gpsCallback, this, _1));
+    sub_groundtruth_ = nh.subscribe<nav_msgs::Odometry>("/ground_truth", 10, boost::bind(&Preprocess::groundtruthCallback, this, _1));
+    pub_gps_path_ = nh.advertise<nav_msgs::Path>("/gps/path", 10);
+    pub_groundtruth_path_ = nh.advertise<nav_msgs::Path>("/groundtruth/path", 10);
+    pub_radar_ = nh.advertise<sensor_msgs::PointCloud2>("/radar_pointcloud2", 10);
+
+    return true;
+}
+
 inline bool Preprocess::exists(const std::string& name) {
     struct stat buffer;
     return !(stat (name.c_str(), &buffer) == 0);
 }
 
-void Preprocess::getRadarFileFormDir(std::string seq_dir, std::string extension)
+bool Preprocess::getRadarFileFormDir(std::string seq_dir, std::string extension)
 {
     DIR *dir = opendir(seq_dir.c_str());
     struct dirent *dp;
@@ -19,6 +53,8 @@ void Preprocess::getRadarFileFormDir(std::string seq_dir, std::string extension)
             radar_files_.push_back(dp->d_name);
         }
     }
+    if(radar_files_.size() == 0) return false;
+    return true;
 }
 
 // GPS data to UTM
@@ -83,30 +119,120 @@ void Preprocess::LonLat2UTM(double longitude, double latitude, double& UTME, dou
 	UTMN = N;
 }
 
+bool Preprocess::filterRadarCloud(){
+    //根据curr_cloud_和curr_radar_cloud_进行滤波,去除地面点和噪点
+    if(!NormalByPCA()){
+        ROS_WARN("wait for radar data!");
+        return false;
+    }
+    PointCloud::Ptr ground_cloud = PointCloud::Ptr(new PointCloud);
+    //TODO : adjust ego_normal
+    Vector3d ego_normal(0, 0, 1);
+
+    for(int i = 0; i < curr_cloud_ptr_->points.size(); i++)
+    {
+        Vector3d point(curr_cloud_ptr_->points[i].x, curr_cloud_ptr_->points[i].y, curr_cloud_ptr_->points[i].z);
+        // if(EuclideanNorm(point) > radius_threshold_ ) continue;
+        if(point.z() < - height_threshold_ || point.z() > height_threshold_ ) continue;
+    
+        Vector3d normal(curr_cloud_normals_ptr_->points[i].normal_x, curr_cloud_normals_ptr_->points[i].normal_y, curr_cloud_normals_ptr_->points[i].normal_z);
+        if(normal.dot(ego_normal) < cos_angle_threshold_){
+            ground_cloud->points.push_back(curr_cloud_ptr_->points[i]);
+        }
+    }
+
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    fitPlaneByRansac(ground_cloud, inliers, coefficients);
+
+    if(processed_cloud_ptr_->points.size() != 0) processed_cloud_ptr_->clear();
+    if(processed_radar_cloud_.size() != 0) processed_radar_cloud_.clear();
+    processed_cloud_ptr_->points.resize(curr_cloud_ptr_->points.size());
+
+    double A = coefficients->values[0];
+    double B = coefficients->values[1];
+    double C = coefficients->values[2];
+    double D = coefficients->values[3];
+
+    for(int i = 0; i < curr_cloud_ptr_->points.size(); i++)
+    {
+        PointT point = curr_cloud_ptr_->points[i];
+        if((A * point.x + B * point.y + C * point.z + D) < 0){
+            processed_cloud_ptr_->points.push_back(curr_cloud_ptr_->points[i]);
+            processed_radar_cloud_.push_back(curr_radar_cloud_[i]);
+        } 
+    }
+    std::cout << "processed_cloud_ptr_->points.size(): " << processed_cloud_ptr_->points.size() << "\n";
+    std::cout << "processed_radar_cloud_.size(): " << processed_radar_cloud_.size() << "\n";
+
+    return true;
+}
+
+bool Preprocess::NormalByPCA(){
+    if(curr_cloud_ptr_->points.size() == 0) return false;
+    pcl::search::KdTree<PointT>::Ptr kdtree(new pcl::search::KdTree<PointT>);
+    kdtree->setInputCloud(curr_cloud_ptr_);
+
+    pcl::NormalEstimation<PointT, pcl::Normal> ne;
+    ne.setInputCloud(curr_cloud_ptr_);
+    ne.setSearchMethod(kdtree);
+    ne.setKSearch(20);
+
+    if(curr_cloud_normals_ptr_->points.size() != 0) curr_cloud_normals_ptr_->clear();
+    curr_cloud_normals_ptr_->points.resize(curr_cloud_ptr_->points.size());
+    ne.compute(*curr_cloud_normals_ptr_);
+    return true;
+}
+
+void Preprocess::fitPlaneByRansac(const PointCloud::Ptr& input_cloud, 
+                                  const pcl::PointIndices::Ptr& inliers,
+                                  const pcl::ModelCoefficients::Ptr& coefficients){ 
+    pcl::SACSegmentation<PointT> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(pcl::SACMODEL_PLANE); //设置模型类型，检测平面
+    seg.setMethodType(pcl::SAC_RANSAC);    //设置方法【聚类或随机样本一致性】
+    seg.setMaxIterations(100);             //设置最大迭代次数
+    seg.setDistanceThreshold(0.1);         //设置内点到模型的距离允许最大值
+    seg.setInputCloud(input_cloud);
+
+    seg.segment(*inliers, *coefficients);
+}
+
 void Preprocess::radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg){
 
 }
 
 void Preprocess::radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg){
-    PointCloud::Ptr radar_cloud(new PointCloud());
-
+    if(curr_cloud_ptr_->points.size() != 0) curr_cloud_ptr_->clear();
+    if(curr_radar_cloud_.size() != 0) curr_radar_cloud_.clear();
+    curr_cloud_ptr_->points.resize(msg->targets.size());
     for (int i = 0; i < msg->targets.size(); i++)
     {
         PointT point;
         point.x = msg->targets[i].range * cos(msg->targets[i].elevation) * cos(msg->targets[i].azimuth);
         point.y = msg->targets[i].range * cos(msg->targets[i].elevation) * sin(msg->targets[i].azimuth);
-        point.z = msg->targets[i].range * sin(msg->targets[i].elevation);
+        point.z = - msg->targets[i].range * sin(msg->targets[i].elevation);
         point.intensity = msg->targets[i].snr;
-        radar_cloud->points.push_back(point);
+        curr_cloud_ptr_->points.push_back(point);
 
-        std::cout << "target.snr: " << msg->targets[i].snr << std::endl;
-        std::cout << "target.power: " << msg->targets[i].power << std::endl;
+        RadarObject radar_object(point.x, point.y, point.z, msg->targets[i].velocity, 
+            msg->targets[i].power, msg->targets[i].snr, msg->targets[i].detectionconfidence); 
+        curr_radar_cloud_.push_back(radar_object);
     }
 
     sensor_msgs::PointCloud2 radar_cloud_msg;
-    pcl::toROSMsg(*radar_cloud, radar_cloud_msg);
+    pcl::toROSMsg(*curr_cloud_ptr_, radar_cloud_msg);
     radar_cloud_msg.header.frame_id = "odom";
     radar_cloud_msg.header.stamp = msg->header.stamp;
+    pub_radar_.publish(radar_cloud_msg);
+}
+
+void Preprocess::publishRadarCloud(){
+    sensor_msgs::PointCloud2 radar_cloud_msg;
+    // pcl::toROSMsg(*curr_cloud_ptr_, radar_cloud_msg);
+    pcl::toROSMsg(*processed_cloud_ptr_, radar_cloud_msg);
+    radar_cloud_msg.header.frame_id = "odom";
+    radar_cloud_msg.header.stamp = ros::Time::now();
     pub_radar_.publish(radar_cloud_msg);
 }
 
@@ -126,7 +252,7 @@ void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
         gps_origin_.z() = msg->altitude;
         gps_point.pose.position.x = 0;
         gps_point.pose.position.y = 0;
-        gps_point.pose.position.z = msg->altitude;
+        gps_point.pose.position.z = 0;
         path_.poses.push_back(gps_point);
         return;
     }
@@ -134,7 +260,7 @@ void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
     LonLat2UTM(msg->longitude, msg->latitude, UTME, UTMN);
     gps_point.pose.position.x = UTME - gps_origin_.x();
     gps_point.pose.position.y = UTMN - gps_origin_.y();
-    gps_point.pose.position.z = msg->altitude;
+    gps_point.pose.position.z = msg->altitude - gps_origin_.z();
 
     path_.poses.push_back(gps_point);
 
@@ -154,7 +280,7 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
         groundtruth_origin_.z() = msg->pose.pose.position.z;
         gps_point.pose.position.x = 0;
         gps_point.pose.position.y = 0;
-        gps_point.pose.position.z = msg->pose.pose.position.z;
+        gps_point.pose.position.z = 0;
         gps_point.pose.orientation.x = msg->pose.pose.orientation.x;
         gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
         gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
@@ -167,7 +293,7 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
 
     gps_point.pose.position.x = msg->pose.pose.position.x - groundtruth_origin_.x();
     gps_point.pose.position.y = msg->pose.pose.position.y - groundtruth_origin_.y();
-    gps_point.pose.position.z = msg->pose.pose.position.z;
+    gps_point.pose.position.z = msg->pose.pose.position.z - groundtruth_origin_.z();
     gps_point.pose.orientation.x = msg->pose.pose.orientation.x;
     gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
     gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
@@ -182,14 +308,6 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
     pub_groundtruth_path_.publish(path_groundtruth_);
 }
 
-void Preprocess::initParams(ros::NodeHandle& nh){
-    sub_radar_ = nh.subscribe<msgs_radar::RadarScanExtended>("/radar_scan", 10,  boost::bind(&Preprocess::radar2Callback, this, _1));
-    sub_gps_ = nh.subscribe<sensor_msgs::NavSatFix>("/gps/fix", 10, boost::bind(&Preprocess::gpsCallback, this, _1));
-    sub_groundtruth_ = nh.subscribe<nav_msgs::Odometry>("/ground_truth", 10, boost::bind(&Preprocess::groundtruthCallback, this, _1));
-    pub_gps_path_ = nh.advertise<nav_msgs::Path>("/gps/path", 10);
-    pub_groundtruth_path_ = nh.advertise<nav_msgs::Path>("/groundtruth/path", 10);
-    pub_radar_ = nh.advertise<sensor_msgs::PointCloud2>("/radar_pointcloud2", 10);
-}
 
 Preprocess::Preprocess() : point_num_(0)
 {

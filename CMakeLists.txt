@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
     msgs_radar
     message_generation
     nuscenes2bag
+    tf2_ros
 )
 
 find_package(Eigen3 REQUIRED)
@@ -26,7 +27,7 @@ include_directories(
 message(Eigen: ${EIGEN3_INCLUDE_DIRS})
 
 catkin_package(
-    CATKIN_DEPENDS roscpp rospy std_msgs message_generation nuscenes2bag
+    CATKIN_DEPENDS roscpp rospy std_msgs message_generation nuscenes2bag tf2_ros
     DEPENDS EIGEN3 PCL
     INCLUDE_DIRS
 )

@@ -1,6 +1,6 @@
-#pragma once
-#ifndef PREPROCESS_H
-#define PREPROCESS_H
+// #pragma once
+#ifndef RADARTYPES_H
+#define RADARTYPES_H
 
 #include <string>
 #include <ros/ros.h>
@@ -8,6 +8,14 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/registration/icp.h> 
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Path.h>
@@ -15,6 +23,7 @@
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/PoseStamped.h>
 
+#include "ulit.h"
 
 // using nuScenes dataset
 #include "nuscenes2bag/RadarObject.h"
@@ -98,14 +107,29 @@ float32 std_dev_elevationAngle
 float32 std_dev_rcs
 */
 
-typedef pcl::PointXYZI PointT;
-typedef pcl::PointCloud<PointT> PointCloud;
 using namespace std;
 using namespace Eigen;
 
+typedef pcl::PointXYZI PointT;
+typedef pcl::PointCloud<PointT> PointCloud;
+
+namespace RadarTypes{
+    struct RadarObject{
+        double x;
+        double y;
+        double z;
+        double velocity;
+        double power;
+        double snr;
+        double det_confi;
+
+        RadarObject(double x_, double y_, double z_, double velocity_, double power_, double snr_, double det_confi_):
+            x(x_), y(y_), z(z_), velocity(velocity_), power(power_), snr(snr_), det_confi(det_confi_){};
+    };
+
+    //using std::vector<RadarObject> as RadarCloud
 class Preprocess{
 public:
-
     std::string dataset_type_;
     //for mulran or oxford dataset
     std::string seq_dir_;
@@ -119,7 +143,19 @@ public:
     Vector3d groundtruth_origin_;
     bool init_groundtruth_ = false;
 
-    PointCloud curr_cloud_;
+    PointCloud::Ptr curr_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
+    std::vector<RadarObject> curr_radar_cloud_;
+    //after filtering
+    PointCloud::Ptr processed_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
+    std::vector<RadarObject> processed_radar_cloud_;
+    //normal cloud
+    pcl::PointCloud<pcl::Normal>::Ptr curr_cloud_normals_ptr_ = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
+
+    //for PCA analysis
+    double height_threshold_ = 0.5;
+    double cos_angle_threshold_ = 0.8;
+    double radius_threshold_;
+
     int point_num_;
     
     // TODO: use different method (0. visual surpport 1. radar only 2. Deep learning)
@@ -127,6 +163,12 @@ public:
 
     Preprocess();
     ~Preprocess();
+
+    /*
+    * @brief: init the parameters
+    * @param: nh: the node handle of the ros
+    */
+    bool initParams(ros::NodeHandle& nh);
 
     /*
     * @brief: check if the file exists
@@ -137,7 +179,7 @@ public:
     * @param: seq_dir: the directory of the radar file
     * @param: extension: the extension of the radar file
     */
-    void getRadarFileFormDir(std::string seq_dir, std::string extension);
+    bool getRadarFileFormDir(std::string seq_dir, std::string extension);
 
     /*
     * @brief: GPS data to UTM
@@ -148,12 +190,17 @@ public:
     */
     void LonLat2UTM(double longitude, double latitude, double& UTME, double& UTMN);
 
-    void initParams(ros::NodeHandle& nh);
+    bool filterRadarCloud();
+    bool NormalByPCA();
+    void fitPlaneByRansac(const PointCloud::Ptr& input_cloud, 
+                          const pcl::PointIndices::Ptr& inliers,
+                          const pcl::ModelCoefficients::Ptr& coefficients);
 
     void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg);
     void groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg);
-    void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg);
     void radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg);
+    void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg);
+    void publishRadarCloud();
 
 private: 
     ros::Subscriber sub_radar_;
@@ -164,11 +211,32 @@ private:
     ros::Publisher pub_groundtruth_path_;
     nav_msgs::Path path_; 
     nav_msgs::Path path_groundtruth_;
-
 };
 
 
+class RadarOdometry
+{
+public:
+    RadarOdometry(){};
+    ~RadarOdometry(){};
 
+    PointCloud::Ptr map_cloud_;
+    PointCloud::Ptr curr_cloud_;
+    std::vector<double> vel_vector_;
+    std::vector<double> power_vector_;
+    std::vector<double> snr_vector_;
+    std::vector<double> det_confi_vector_;
 
+    double keyframe_delta_trans_;
+    double keyframe_delta_angle_;
+    double keyframe_delta_time_;
+    
+    void getDataFromPreprocess(const Preprocess& pre_process, const ros::Time& curr_time);
 
-#endif
+    void matchScan2Scan();
+
+}; // class RadarOdometry
+
+}// namespace RadarTypes
+
+#endif // RADARTYPES_H
