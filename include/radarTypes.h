@@ -2,6 +2,8 @@
 #ifndef RADARTYPES_H
 #define RADARTYPES_H
 
+#define PCL_NO_PRECOMPILE
+
 #include <string>
 #include <ros/ros.h>
 #include <Eigen/Eigen>
@@ -15,6 +17,7 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/registration/ndt.h>
 
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -113,7 +116,63 @@ using namespace Eigen;
 typedef pcl::PointXYZI PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
+//msc rad4r dataset format
+struct RadarPoint
+{
+    PCL_ADD_POINT4D;  // 添加XYZ坐标
+    float alpha;      // alpha信息
+    float beta;       // beta信息
+    float range;      // range信息
+    float doppler;    // doppler信息
+    float power;      // power信息
+    float recoveredSpeed; // recoveredSpeed信息
+    uint16_t dotFlags;  // dotFlags信息
+    uint16_t denoiseFlag; // denoiseFlag信息
+    uint16_t historyFrameFlag; // historyFrameFlag信息
+    uint16_t dopplerCorrectionFlag; // dopplerCorrectionFlag信息
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW  // 确保对齐
+}EIGEN_ALIGN16;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(RadarPoint,
+    (float, x, x)                // 定义X坐标字段
+    (float, y, y)                // 定义Y坐标字段
+    (float, z, z)                // 定义Z坐标字段
+    (float, alpha, alpha)        // 定义alpha字段
+    (float, beta, beta)          // 定义beta字段
+    (float, range, range)        // 定义range字段
+    (float, doppler, doppler)    // 定义doppler字段
+    (float, power, power)        // 定义power字段
+    (float, recoveredSpeed, recoveredSpeed)  // 定义recoveredSpeed字段
+    (uint16_t, dotFlags, dotFlags)  // 定义dotFlags字段
+    (uint16_t, denoiseFlag, denoiseFlag)  // 定义denoiseFlag字段
+    (uint16_t, historyFrameFlag, historyFrameFlag)  // 定义historyFrameFlag字段
+    (uint16_t, dopplerCorrectionFlag, dopplerCorrectionFlag)  // 定义dopplerCorrectionFlag字段
+)
+
+typedef pcl::PointCloud<RadarPoint> RadarCloud;
+
+/**
+ * 6D位姿点云结构定义
+*/
+struct PointXYZIRPYT
+{
+    PCL_ADD_POINT4D     
+    float roll;         
+    float pitch;
+    float yaw;
+    double time;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW   
+} EIGEN_ALIGN16;                    
+
+POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRPYT,
+                                   (float, x, x) (float, y, y)
+                                   (float, roll, roll) (float, pitch, pitch) (float, yaw, yaw)
+                                   (double, time, time))
+
+typedef PointXYZIRPYT  PointTypePose;
+
 namespace RadarTypes{
+    //4D radar dataset format
     struct RadarObject{
         double x;
         double y;
@@ -126,6 +185,7 @@ namespace RadarTypes{
         RadarObject(double x_, double y_, double z_, double velocity_, double power_, double snr_, double det_confi_):
             x(x_), y(y_), z(z_), velocity(velocity_), power(power_), snr(snr_), det_confi(det_confi_){};
     };
+
 
     //using std::vector<RadarObject> as RadarCloud
 class Preprocess{
@@ -143,11 +203,19 @@ public:
     Vector3d groundtruth_origin_;
     bool init_groundtruth_ = false;
 
-    PointCloud::Ptr curr_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
-    std::vector<RadarObject> curr_radar_cloud_;
-    //after filtering
-    PointCloud::Ptr processed_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
-    std::vector<RadarObject> processed_radar_cloud_;
+    // #ifdef 0 
+    // PointCloud::Ptr curr_cloud_ptr_;
+    // std::vector<RadarObject> curr_radar_cloud_;
+    // //after filtering
+    // PointCloud::Ptr processed_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
+    // std::vector<RadarObject> processed_radar_cloud_;
+    // //normal cloud
+    // pcl::PointCloud<pcl::Normal>::Ptr curr_cloud_normals_ptr_ = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
+    // #endif // USE_4D_RADAR_SLAM_DATASET
+
+    RadarCloud::Ptr curr_cloud_ptr_ = RadarCloud::Ptr(new RadarCloud);
+    ros::Time curr_cloud_time_;
+    RadarCloud::Ptr processed_cloud_ptr_ = RadarCloud::Ptr(new RadarCloud);
     //normal cloud
     pcl::PointCloud<pcl::Normal>::Ptr curr_cloud_normals_ptr_ = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
 
@@ -161,14 +229,15 @@ public:
     // TODO: use different method (0. visual surpport 1. radar only 2. Deep learning)
     int method_ = 1;
 
-    Preprocess();
+    Preprocess(ros::NodeHandle& nh);
     ~Preprocess();
 
     /*
     * @brief: init the parameters
-    * @param: nh: the node handle of the ros
     */
-    bool initParams(ros::NodeHandle& nh);
+    bool initParams();
+
+    bool allocateMemory();
 
     /*
     * @brief: check if the file exists
@@ -198,11 +267,13 @@ public:
 
     void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg);
     void groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg);
+    void radarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
     void radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg);
     void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg);
     void publishRadarCloud();
 
 private: 
+    ros::NodeHandle nh_;
     ros::Subscriber sub_radar_;
     ros::Subscriber sub_gps_;
     ros::Subscriber sub_groundtruth_;
@@ -211,32 +282,124 @@ private:
     ros::Publisher pub_groundtruth_path_;
     nav_msgs::Path path_; 
     nav_msgs::Path path_groundtruth_;
+    std::string pointCloudTopic_;
+
 };
 
 
 class RadarOdometry
 {
 public:
-    RadarOdometry(){};
+    RadarOdometry(ros::NodeHandle& nh);
     ~RadarOdometry(){};
 
-    PointCloud::Ptr map_cloud_;
-    PointCloud::Ptr curr_cloud_;
-    std::vector<double> vel_vector_;
-    std::vector<double> power_vector_;
-    std::vector<double> snr_vector_;
-    std::vector<double> det_confi_vector_;
+    ros::Subscriber sub_radar_;
+    ros::Publisher pub_radar_;
+    ros::Publisher pub_path_;
+    nav_msgs::Path path_msg_;
 
     double keyframe_delta_trans_;
     double keyframe_delta_angle_;
     double keyframe_delta_time_;
-    
-    void getDataFromPreprocess(const Preprocess& pre_process, const ros::Time& curr_time);
 
-    void matchScan2Scan();
+    float transformTobeMapped[6] = {0.0,0.0,0.0,0.0,0.0,0.0}; //当前帧的估计位姿
+    float lastTransformTobeMapped[6] = {0.0,0.0,0.0,0.0,0.0,0.0}; //上一帧的估计位姿 
+    std::queue<std::pair<RadarCloud,double>> radar_buffer_;
+    double curr_time_;
+    pcl::PointCloud<PointTypePose>::Ptr cloudKeyPoses6D_ = pcl::PointCloud<PointTypePose>::Ptr(new pcl::PointCloud<PointTypePose>());
+
+    RadarCloud::Ptr map_ = RadarCloud::Ptr(new RadarCloud); 
+    RadarCloud::Ptr curr_cloud_ = RadarCloud::Ptr(new RadarCloud);
+    RadarCloud::Ptr last_cloud_ = RadarCloud::Ptr(new RadarCloud);
+    RadarCloud::Ptr transformed_cloud_ = RadarCloud::Ptr(new RadarCloud);
+
+    pcl::NormalDistributionsTransform<RadarPoint, RadarPoint> ndt_ = pcl::NormalDistributionsTransform<RadarPoint, RadarPoint>();
+    bool has_converged_;
+    double fitness_score_;
+
+    Eigen::Matrix4f origin_pose_ = Eigen::Matrix4f::Identity();
+
+    void radarCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_in);
+
+    Eigen::Matrix4f matchByNDT();
+    void updatePoseAndMap(const Eigen::Matrix4f& diff_pose);
+    void transMat4f2XYZRPY(const Eigen::Matrix4f& diff_pose);
+    bool saveFrame();
+    void publishRadarCloud();
+    void publishPath();
+
+private:
+
 
 }; // class RadarOdometry
 
+class Pose {
+public:
+  Pose() { x = y = z = roll = pitch = yaw = 0.0; }
+  virtual ~Pose() = default;
+  void setPose(const Eigen::Matrix4f &t, const Eigen::Matrix3d &m) {
+    x = t(0, 3);
+    y = t(1, 3);
+    z = t(2, 3);
+    Vector3d euler = m.eulerAngles(2, 1, 0);
+    yaw = euler(0);
+    pitch = euler(1);
+    roll = euler(2);
+  }
+
+  double calDistance() {
+    double dis = sqrt(x * x + y * y + z * z);
+    return dis;
+  }
+  void operator=(const Pose &p) {
+    x = p.x;
+    y = p.y;
+    z = p.z;
+    roll = p.roll;
+    pitch = p.pitch;
+    yaw = p.yaw;
+  }
+
+  Pose operator+(const Pose &p) const {
+    Pose res;
+    res.x = x + p.x;
+    res.y = y + p.y;
+    res.z = z + p.z;
+    res.roll = roll + p.roll;
+    res.pitch = pitch + p.pitch;
+    res.yaw = yaw + p.yaw;
+    return res;
+  }
+
+  Pose operator-(const Pose &p) const {
+    Pose res;
+    res.x = x - p.x;
+    res.y = y - p.y;
+    res.z = z - p.z;
+
+    double diff_rad = yaw - p.yaw;
+    if (diff_rad >= M_PI)
+      diff_rad = diff_rad - 2 * M_PI;
+    else if (diff_rad < -M_PI)
+      diff_rad = diff_rad + 2 * M_PI;
+    res.yaw = diff_rad;
+
+    // TODO ? is necessary ?
+    res.roll = 0;
+    res.pitch = 0;
+
+    return res;
+  }
+  friend inline std::ostream &operator<<(std::ostream &os, const Pose &p) {
+    os << std::fixed << std::setprecision(2) << " Position: (x:" << p.x
+       << ") (y:" << p.y << ") (z:" << p.z << "); "
+       << "Rotation: (roll:" << p.roll << ") (pitch:" << p.pitch
+       << ") (yaw:" << p.yaw << ")\n";
+    return os;
+  }
+
+  double x, y, z, roll, pitch, yaw;
+};
 }// namespace RadarTypes
 
 #endif // RADARTYPES_H

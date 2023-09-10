@@ -1,36 +1,56 @@
 #include "radarTypes.h"
 using namespace RadarTypes;
 using namespace ulit;
-bool Preprocess::initParams(ros::NodeHandle& nh){
-    if (dataset_type_ == "nuScenes_dataset")
+bool Preprocess::initParams(){
+
+    nh_.param<std::string>("/preprocess/dataset_type", dataset_type_, "mscrad4r");
+    nh_.param<std::string>("/radar_slam/pointCloudTopic", pointCloudTopic_, "/points_raw");
+
+    if(dataset_type_ == "mscrad4r")
     {
-        //TODO : add nuScenes dataset
-        sub_radar_ = nh.subscribe<nuscenes2bag::RadarObjects>("/radar_scan", 10,  boost::bind(&Preprocess::radar1Callback, this, _1));
-    }else if(dataset_type_ == "4D_Radar_SLAM_dataset")
-    {
-        sub_radar_ = nh.subscribe<msgs_radar::RadarScanExtended>("/radar_scan", 10,  boost::bind(&Preprocess::radar2Callback, this, _1));
-    }else if(dataset_type_ == "mulran")
-    {
-        //TODO : add mulran dataset
-        if(!getRadarFileFormDir(seq_dir_, "png")) 
-        {
-            ROS_ERROR("radar file empty!");
-            return false;
-        }
-        std::cout << "radar file size: " << radar_files_.size() << std::endl;
+        sub_radar_ = nh_.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic_, 10,  boost::bind(&Preprocess::radarCallback, this, _1));
+    // }
+    // else if (dataset_type_ == "nuScenes_dataset")
+    // {
+    //     sub_radar_ = nh_.subscribe<nuscenes2bag::RadarObjects>("/radar_front", 10,  boost::bind(&Preprocess::radar1Callback, this, _1));
+    // }else if(dataset_type_ == "4D_Radar_SLAM_dataset")
+    // {
+    //     sub_radar_ = nh_.subscribe<msgs_radar::RadarScanExtended>("/radar_scan", 10,  boost::bind(&Preprocess::radar2Callback, this, _1));
+    // }else if(dataset_type_ == "mulran")
+    // {
+    //     //TODO : add mulran dataset
+    //     if(!getRadarFileFormDir(seq_dir_, "png")) 
+    //     {
+    //         ROS_ERROR("radar file empty!");
+    //         return false;
+    //     }
+    //     std::cout << "radar file size: " << radar_files_.size() << std::endl;
     }else
     {
         ROS_ERROR("input dataset type error!");
         return false;
     }
 
-    sub_gps_ = nh.subscribe<sensor_msgs::NavSatFix>("/gps/fix", 10, boost::bind(&Preprocess::gpsCallback, this, _1));
-    sub_groundtruth_ = nh.subscribe<nav_msgs::Odometry>("/ground_truth", 10, boost::bind(&Preprocess::groundtruthCallback, this, _1));
-    pub_gps_path_ = nh.advertise<nav_msgs::Path>("/gps/path", 10);
-    pub_groundtruth_path_ = nh.advertise<nav_msgs::Path>("/groundtruth/path", 10);
-    pub_radar_ = nh.advertise<sensor_msgs::PointCloud2>("/radar_pointcloud2", 10);
+    // sub_gps_ = nh_.subscribe<sensor_msgs::NavSatFix>("/gps/fix", 10, boost::bind(&Preprocess::gpsCallback, this, _1));
+    // sub_groundtruth_ = nh_.subscribe<nav_msgs::Odometry>("/ground_truth", 10, boost::bind(&Preprocess::groundtruthCallback, this, _1));
+    // pub_gps_path_ = nh_.advertise<nav_msgs::Path>("/gps/path", 10);
+    // pub_groundtruth_path_ = nh_.advertise<nav_msgs::Path>("/groundtruth/path", 10);
+    pub_radar_ = nh_.advertise<sensor_msgs::PointCloud2>("/preprocess/precessed_pointcloud", 10);
+
+    // allocateMemory();
 
     return true;
+}
+
+bool Preprocess::allocateMemory()
+{
+    // curr_cloud_ptr_ = RadarCloud::Ptr(new RadarCloud);
+    // curr_cloud_normals_ptr_ ;
+    // curr_radar_cloud_.clear();
+    // processed_cloud_ptr_.reset(new RadarCloud);
+    // processed_radar_cloud_.clear();
+    // curr_cloud_normals_ptr_.reset(new pcl::PointCloud<pcl::Normal>);
+
 }
 
 inline bool Preprocess::exists(const std::string& name) {
@@ -121,59 +141,67 @@ void Preprocess::LonLat2UTM(double longitude, double latitude, double& UTME, dou
 
 bool Preprocess::filterRadarCloud(){
     //根据curr_cloud_和curr_radar_cloud_进行滤波,去除地面点和噪点
-    if(!NormalByPCA()){
-        ROS_WARN("wait for radar data!");
-        return false;
-    }
-    PointCloud::Ptr ground_cloud = PointCloud::Ptr(new PointCloud);
-    //TODO : adjust ego_normal
-    Vector3d ego_normal(0, 0, 1);
+    // if(!NormalByPCA()){
+    //     ROS_WARN("wait for radar data!");
+    //     return false;
+    // }
+    // PointCloud::Ptr ground_cloud = PointCloud::Ptr(new PointCloud);
+    // //TODO : adjust ego_normal
+    // Vector3d ego_normal(0, 0, 1);
 
-    for(int i = 0; i < curr_cloud_ptr_->points.size(); i++)
-    {
-        Vector3d point(curr_cloud_ptr_->points[i].x, curr_cloud_ptr_->points[i].y, curr_cloud_ptr_->points[i].z);
-        // if(EuclideanNorm(point) > radius_threshold_ ) continue;
-        if(point.z() < - height_threshold_ || point.z() > height_threshold_ ) continue;
+    // for(int i = 0; i < curr_cloud_ptr_->points.size(); i++)
+    // {
+    //     Vector3d point(curr_cloud_ptr_->points[i].x, curr_cloud_ptr_->points[i].y, curr_cloud_ptr_->points[i].z);
+    //     // if(EuclideanNorm(point) > radius_threshold_ ) continue;
+    //     if(point.z() < - height_threshold_ || point.z() > height_threshold_ ) continue;
     
-        Vector3d normal(curr_cloud_normals_ptr_->points[i].normal_x, curr_cloud_normals_ptr_->points[i].normal_y, curr_cloud_normals_ptr_->points[i].normal_z);
-        if(normal.dot(ego_normal) < cos_angle_threshold_){
-            ground_cloud->points.push_back(curr_cloud_ptr_->points[i]);
-        }
-    }
+    //     Vector3d normal(curr_cloud_normals_ptr_->points[i].normal_x, curr_cloud_normals_ptr_->points[i].normal_y, curr_cloud_normals_ptr_->points[i].normal_z);
+    //     if(normal.dot(ego_normal) > cos_angle_threshold_){
+    //         PointT tempPoint;
+    //         tempPoint.x = curr_cloud_ptr_->points[i].x;
+    //         tempPoint.y = curr_cloud_ptr_->points[i].y;
+    //         tempPoint.z = curr_cloud_ptr_->points[i].z;
+    //         ground_cloud->points.push_back(tempPoint);
+    //     }
+    // }
 
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    fitPlaneByRansac(ground_cloud, inliers, coefficients);
+    // pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    // pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    // fitPlaneByRansac(ground_cloud, inliers, coefficients);
 
     if(processed_cloud_ptr_->points.size() != 0) processed_cloud_ptr_->clear();
-    if(processed_radar_cloud_.size() != 0) processed_radar_cloud_.clear();
+    // if(processed_radar_cloud_.size() != 0) processed_radar_cloud_.clear();
     processed_cloud_ptr_->points.resize(curr_cloud_ptr_->points.size());
 
-    double A = coefficients->values[0];
-    double B = coefficients->values[1];
-    double C = coefficients->values[2];
-    double D = coefficients->values[3];
+    // double A = coefficients->values[0];
+    // double B = coefficients->values[1];
+    // double C = coefficients->values[2];
+    // double D = coefficients->values[3];
 
     for(int i = 0; i < curr_cloud_ptr_->points.size(); i++)
     {
-        PointT point = curr_cloud_ptr_->points[i];
-        if((A * point.x + B * point.y + C * point.z + D) < 0){
+        RadarPoint point = curr_cloud_ptr_->points[i];
+        // if((A * point.x + B * point.y + C * point.z + D) < 0){
             processed_cloud_ptr_->points.push_back(curr_cloud_ptr_->points[i]);
-            processed_radar_cloud_.push_back(curr_radar_cloud_[i]);
-        } 
+            // processed_radar_cloud_.push_back(curr_radar_cloud_[i]);
+        // } 
     }
-    std::cout << "processed_cloud_ptr_->points.size(): " << processed_cloud_ptr_->points.size() << "\n";
-    std::cout << "processed_radar_cloud_.size(): " << processed_radar_cloud_.size() << "\n";
+    // std::cout << "processed_cloud_ptr_->points.size(): " << processed_cloud_ptr_->points.size() << "\n";
+    // std::cout << "processed_radar_cloud_.size(): " << processed_radar_cloud_.size() << "\n";
 
     return true;
 }
 
 bool Preprocess::NormalByPCA(){
     if(curr_cloud_ptr_->points.size() == 0) return false;
-    pcl::search::KdTree<PointT>::Ptr kdtree(new pcl::search::KdTree<PointT>);
+    std::cout << "curr_cloud_ptr_->points.size()" << curr_cloud_ptr_->points.size() << "\n";
+    pcl::search::KdTree<RadarPoint>::Ptr kdtree(new pcl::search::KdTree<RadarPoint>);
     kdtree->setInputCloud(curr_cloud_ptr_);
 
-    pcl::NormalEstimation<PointT, pcl::Normal> ne;
+    // pcl::KdTreeFLANN<RadarPoint> kdtree;
+    // kdtree.setInputCloud(curr_cloud_ptr_);
+
+    pcl::NormalEstimation<RadarPoint, pcl::Normal> ne;
     ne.setInputCloud(curr_cloud_ptr_);
     ne.setSearchMethod(kdtree);
     ne.setKSearch(20);
@@ -197,34 +225,41 @@ void Preprocess::fitPlaneByRansac(const PointCloud::Ptr& input_cloud,
 
     seg.segment(*inliers, *coefficients);
 }
+void Preprocess::radarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
+{
+    if(msg->fields.size() == 0) return;
+    RadarCloud::Ptr cloud(new RadarCloud);
+    pcl::fromROSMsg(*msg, *curr_cloud_ptr_);
+    curr_cloud_time_ = msg->header.stamp;
+}
 
 void Preprocess::radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg){
 
 }
 
 void Preprocess::radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg){
-    if(curr_cloud_ptr_->points.size() != 0) curr_cloud_ptr_->clear();
-    if(curr_radar_cloud_.size() != 0) curr_radar_cloud_.clear();
-    curr_cloud_ptr_->points.resize(msg->targets.size());
-    for (int i = 0; i < msg->targets.size(); i++)
-    {
-        PointT point;
-        point.x = msg->targets[i].range * cos(msg->targets[i].elevation) * cos(msg->targets[i].azimuth);
-        point.y = msg->targets[i].range * cos(msg->targets[i].elevation) * sin(msg->targets[i].azimuth);
-        point.z = - msg->targets[i].range * sin(msg->targets[i].elevation);
-        point.intensity = msg->targets[i].snr;
-        curr_cloud_ptr_->points.push_back(point);
+    // if(curr_cloud_ptr_->points.size() != 0) curr_cloud_ptr_->clear();
+    // if(curr_radar_cloud_.size() != 0) curr_radar_cloud_.clear();
+    // curr_cloud_ptr_->points.resize(msg->targets.size());
+    // for (int i = 0; i < msg->targets.size(); i++)
+    // {
+    //     PointT point;
+    //     point.x = msg->targets[i].range * cos(msg->targets[i].elevation) * cos(msg->targets[i].azimuth);
+    //     point.y = msg->targets[i].range * cos(msg->targets[i].elevation) * sin(msg->targets[i].azimuth);
+    //     point.z = - msg->targets[i].range * sin(msg->targets[i].elevation);
+    //     point.intensity = msg->targets[i].snr;
+    //     curr_cloud_ptr_->points.push_back(point);
 
-        RadarObject radar_object(point.x, point.y, point.z, msg->targets[i].velocity, 
-            msg->targets[i].power, msg->targets[i].snr, msg->targets[i].detectionconfidence); 
-        curr_radar_cloud_.push_back(radar_object);
-    }
+    //     RadarObject radar_object(point.x, point.y, point.z, msg->targets[i].velocity, 
+    //         msg->targets[i].power, msg->targets[i].snr, msg->targets[i].detectionconfidence); 
+    //     curr_radar_cloud_.push_back(radar_object);
+    // }
 
-    sensor_msgs::PointCloud2 radar_cloud_msg;
-    pcl::toROSMsg(*curr_cloud_ptr_, radar_cloud_msg);
-    radar_cloud_msg.header.frame_id = "odom";
-    radar_cloud_msg.header.stamp = msg->header.stamp;
-    pub_radar_.publish(radar_cloud_msg);
+    // sensor_msgs::PointCloud2 radar_cloud_msg;
+    // pcl::toROSMsg(*curr_cloud_ptr_, radar_cloud_msg);
+    // radar_cloud_msg.header.frame_id = "odom";
+    // radar_cloud_msg.header.stamp = msg->header.stamp;
+    // pub_radar_.publish(radar_cloud_msg);
 }
 
 void Preprocess::publishRadarCloud(){
@@ -232,7 +267,7 @@ void Preprocess::publishRadarCloud(){
     // pcl::toROSMsg(*curr_cloud_ptr_, radar_cloud_msg);
     pcl::toROSMsg(*processed_cloud_ptr_, radar_cloud_msg);
     radar_cloud_msg.header.frame_id = "odom";
-    radar_cloud_msg.header.stamp = ros::Time::now();
+    radar_cloud_msg.header.stamp = curr_cloud_time_;
     pub_radar_.publish(radar_cloud_msg);
 }
 
@@ -309,12 +344,33 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
 }
 
 
-Preprocess::Preprocess() : point_num_(0)
+Preprocess::Preprocess(ros::NodeHandle& nh)
 {
-    std::cout << "Preprocess constructor called!" << std::endl;
+    this->nh_ = nh;
+    this->initParams();
 }
 
 Preprocess::~Preprocess()
 {
     std::cout << "Preprocess destructor called!" << std::endl;
+}
+
+
+int main(int argc, char **argv)
+{
+    ros::init(argc, argv, "preprocess");
+    ros::NodeHandle nh("~");
+
+    Preprocess pre_process = Preprocess(nh);
+
+    ROS_INFO("\033[1;32m----> Preprocess Started.\033[0m");
+
+    while(ros::ok())
+    {
+        ros::spinOnce();
+        pre_process.filterRadarCloud();
+        pre_process.publishRadarCloud();
+    }
+    
+    return 0;
 }

@@ -1,0 +1,65 @@
+preprocess:
+  dataset_type: mscrad4r
+
+radar_slam:
+
+  #Topics
+  pointCloudTopic: /oculii_radar/point_cloud               # Point cloud data <!-- pc2_raw inlier_pc2 segmented -->
+  imuTopic: /imu/data                         # IMU data
+  odomTopic: /odom                   # IMU pre-preintegration odometry, same frequency as IMU
+  # gpsTopic: "/ublox/fix"                   # GPS odometry topic from navsat, see module_navsat.launch file
+
+  #Frames
+  RadarFrame: oculii
+  baselinkFrame: base_link
+  odometryFrame: odom
+  mapFrame: map
+
+  # GPS Settings
+  # useGpsElevation: false                      # if GPS elevation is bad, set to "false"
+  # gpsCovThreshold: 2.0                        # m^2, threshold for using GPS data
+  # poseCovThreshold: 25.0                      # m^2, threshold for using GPS data
+  
+  # Export settings
+  # savePCD: false                              # 
+  # savePCDDirectory: "/Downloads/4DRadarSLAM/"        #
+
+  # Sensor Settings
+  # downsampleRate: 1                           # default: 1. Downsample your data if too many points. i.e., 16 = 64 / 4, 16 = 16 / 1 
+  # lidarMinRange: 1.0                          # default: 1.0, minimum lidar range to be used
+  # lidarMaxRange: 1000.0                       # default: 1000.0, maximum lidar range to be used
+
+  #IMU Settings
+  imuAccNoise: 0.00898871744211 # 3.9939570888238808e-03
+  imuGyrNoise: 0.00011667951042710442 # 1.5636343949698187e-03
+  imuAccBiasN: 9.50801594079e-05 # 6.4356659353532566e-05
+  imuGyrBiasN: 3.56421180759e-05 # 3.5640318696367613e-05
+  imuGravity: 9.80511
+  imuRPYWeight: 0.01
+
+  # Extrinsics (Radar -> IMU)
+  # extrinsicTrans: [0, 0, 0]
+  extrinsicTrans: [-0.038226029630709, -0.928888988591053, -1.410952291880991]
+  # extrinsicRot: [1, 0, 0,
+  #                 0, -1, 0,
+  #                 0, 0, -1]
+  # extrinsicRPY: [1, 0, 0,
+  #                 0, -1, 0,
+  #                 0, 0, -1]
+  extrinsicRot: [0.013976518654758, -0.999902319295810, -0.00003171112772766588,
+                 -0.004676034937477, -0.00003364924546308485, -0.999989066399442,
+                 0.999891392308440, 0.013976513481382, -0.004676043109061]
+  # extrinsicRPY: [0.999735807578, -0.0215215701795, -0.0081643477385,
+  #                -0.02148120581797, -0.9997581134183, 0.00502853428037,
+  #                -0.00826995351904, -0.0048509797951, -0.99995400578406]
+  # extrinsicRot: [1, 0, 0,
+  #                 0, 1, 0,
+  #                 0, 0, 1]
+  # extrinsicRPY: [1, 0, 0,
+  #                 0, 1, 0,
+  #                 0, 0, 1]
+
+
+  keyframe_delta_trans: 0.25
+  keyframe_delta_angle: 0.15
+  keyframe_delta_time: 0.1
