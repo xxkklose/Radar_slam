@@ -5,6 +5,12 @@ bool Preprocess::initParams(){
 
     nh_.param<std::string>("/preprocess/dataset_type", dataset_type_, "mscrad4r");
     nh_.param<std::string>("/radar_slam/pointCloudTopic", pointCloudTopic_, "/points_raw");
+    nh_.param<std::string>("/radar_slam/gpsTopic", gpsTopic_, "/gps/fix");
+    nh_.param<std::string>("/radar_slam/mapFrame", mapFrame_, "map");
+    nh_.param<std::string>("/radar_slam/odomFrame", odomFrame_, "odom");
+    nh_.param<std::string>("/radar_slam/baseFrame", baseFrame_, "base_link");
+    nh_.param<std::string>("/radar_slam/RadarFrame", radarFrame_, "radar");
+
 
     if(dataset_type_ == "mscrad4r")
     {
@@ -31,9 +37,9 @@ bool Preprocess::initParams(){
         return false;
     }
 
-    // sub_gps_ = nh_.subscribe<sensor_msgs::NavSatFix>("/gps/fix", 10, boost::bind(&Preprocess::gpsCallback, this, _1));
+    sub_gps_ = nh_.subscribe<sensor_msgs::NavSatFix>(gpsTopic_, 10, boost::bind(&Preprocess::gpsCallback, this, _1));
     // sub_groundtruth_ = nh_.subscribe<nav_msgs::Odometry>("/ground_truth", 10, boost::bind(&Preprocess::groundtruthCallback, this, _1));
-    // pub_gps_path_ = nh_.advertise<nav_msgs::Path>("/gps/path", 10);
+    pub_gps_path_ = nh_.advertise<nav_msgs::Path>("/gps/path", 10);
     // pub_groundtruth_path_ = nh_.advertise<nav_msgs::Path>("/groundtruth/path", 10);
     pub_radar_ = nh_.advertise<sensor_msgs::PointCloud2>("/preprocess/precessed_pointcloud", 10);
 
@@ -233,10 +239,6 @@ void Preprocess::radarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
     curr_cloud_time_ = msg->header.stamp;
 }
 
-void Preprocess::radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg){
-
-}
-
 void Preprocess::radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg){
     // if(curr_cloud_ptr_->points.size() != 0) curr_cloud_ptr_->clear();
     // if(curr_radar_cloud_.size() != 0) curr_radar_cloud_.clear();
@@ -266,7 +268,7 @@ void Preprocess::publishRadarCloud(){
     sensor_msgs::PointCloud2 radar_cloud_msg;
     // pcl::toROSMsg(*curr_cloud_ptr_, radar_cloud_msg);
     pcl::toROSMsg(*processed_cloud_ptr_, radar_cloud_msg);
-    radar_cloud_msg.header.frame_id = "odom";
+    radar_cloud_msg.header.frame_id = mapFrame_;
     radar_cloud_msg.header.stamp = curr_cloud_time_;
     pub_radar_.publish(radar_cloud_msg);
 }
@@ -274,7 +276,7 @@ void Preprocess::publishRadarCloud(){
 
 void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
     geometry_msgs::PoseStamped gps_point;
-    gps_point.header.frame_id = "odom";
+    gps_point.header.frame_id = mapFrame_;
     gps_point.header.stamp = msg->header.stamp;
     double UTME, UTMN;
     
@@ -299,7 +301,7 @@ void Preprocess::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg){
 
     path_.poses.push_back(gps_point);
 
-    path_.header.frame_id = "odom";
+    path_.header.frame_id = mapFrame_;
     path_.header.stamp = ros::Time::now();
 
     pub_gps_path_.publish(path_);
@@ -320,7 +322,7 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
         gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
         gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
         gps_point.pose.orientation.w = msg->pose.pose.orientation.w;
-        gps_point.header.frame_id = "odom";
+        gps_point.header.frame_id = mapFrame_;
         gps_point.header.stamp = msg->header.stamp;
         path_groundtruth_.poses.push_back(gps_point);
         return;
@@ -333,11 +335,11 @@ void Preprocess::groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg){
     gps_point.pose.orientation.y = msg->pose.pose.orientation.y;
     gps_point.pose.orientation.z = msg->pose.pose.orientation.z;
     gps_point.pose.orientation.w = msg->pose.pose.orientation.w;
-    gps_point.header.frame_id = "odom";
+    gps_point.header.frame_id = mapFrame_;
     gps_point.header.stamp = msg->header.stamp;
     path_groundtruth_.poses.push_back(gps_point);
 
-    path_groundtruth_.header.frame_id = "odom";
+    path_groundtruth_.header.frame_id = mapFrame_;
     path_groundtruth_.header.stamp = ros::Time::now();
 
     pub_groundtruth_path_.publish(path_groundtruth_);

@@ -1,6 +1,7 @@
 #include "radarTypes.h"
 #include <fstream>
 using namespace RadarTypes;
+using namespace ulit;
 
 #define MAX_BUFFER_SIZE 100
 
@@ -12,16 +13,27 @@ RadarOdometry::RadarOdometry(ros::NodeHandle& nh)
     nh.param<double>("/radar_slam/keyframe_delta_trans", keyframe_delta_trans_, 0.25);
     nh.param<double>("/radar_slam/keyframe_delta_angle", keyframe_delta_angle_, 0.15);
     nh.param<double>("/radar_slam/keyframe_delta_time", keyframe_delta_time_, 1.0);
+    nh.param<std::string>("/radar_slam/mapFrame", mapFrame_, "map");
+    nh.param<std::string>("/radar_slam/odomFrame", odomFrame_, "odom");
+    nh.param<std::string>("/radar_slam/baseFrame", baseFrame_, "base_link");
+    nh.param<std::string>("/radar_slam/RadarFrame", radarFrame_, "radar");
 
     sub_radar_ = nh.subscribe("/preprocess/precessed_pointcloud", 10, &RadarOdometry::radarCallback, this);
     pub_radar_ = nh.advertise<sensor_msgs::PointCloud2>("/radar_odometry/radar_cloud", 1000);
-    pub_path_ = nh.advertise<nav_msgs::Path>("/radar_odometry/path", 10);
+    pub_path_ = nh.advertise<nav_msgs::Path>("/radar_odometry/path", 1000);
+    pub_odometry_ = nh.advertise<nav_msgs::Odometry>("/radar_odometry/odometry", 1000);
 
 }
 
 void RadarOdometry::radarCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_in)
 {
-    if (cloud_in->width == 0 || cloud_in->data.empty()) return;
+    if (cloud_in->width == 0 || cloud_in->data.empty())
+    {
+        notNew_ = true;
+        return;
+    }else{
+        notNew_ = false;
+    } 
     RadarCloud::Ptr cloud(new RadarCloud);
     pcl::fromROSMsg(*cloud_in, *cloud);
     double curr_time = cloud_in->header.stamp.toSec();
@@ -48,6 +60,8 @@ Eigen::Matrix4f RadarOdometry::matchByNDT(){
 
     Pose init_pose;//TODO : use imu as init pose
     Eigen::Matrix4f init_guess = Eigen::Matrix4f::Identity();
+    // ndt_.setInputTarget(curr_cloud_);
+    // ndt_.setInputSource(last_cloud_);    
     ndt_.setInputTarget(last_cloud_);
     ndt_.setInputSource(curr_cloud_);
     RadarCloud::Ptr output_cloud(new RadarCloud);
@@ -56,8 +70,6 @@ Eigen::Matrix4f RadarOdometry::matchByNDT(){
     fitness_score_ = ndt_.getFitnessScore();
     Eigen::Matrix4f t_localizer = ndt_.getFinalTransformation();
     has_converged_ = ndt_.hasConverged();
-
-    std::cout << "has converged: " << has_converged_ << " score: " << fitness_score_ << std::endl;
       
     return t_localizer; 
 }
@@ -106,9 +118,8 @@ bool RadarOdometry::saveFrame()
 void RadarOdometry::publishRadarCloud()
 {
     sensor_msgs::PointCloud2 radar_cloud_msg;
-    std::cout<<"transformed_cloud_.size: "<<transformed_cloud_->size()<<std::endl;
     pcl::toROSMsg(*transformed_cloud_, radar_cloud_msg);
-    radar_cloud_msg.header.frame_id = "map";
+    radar_cloud_msg.header.frame_id = mapFrame_;
     radar_cloud_msg.header.stamp = ros::Time::now();
     pub_radar_.publish(radar_cloud_msg);
     return;
@@ -116,12 +127,12 @@ void RadarOdometry::publishRadarCloud()
 
 void RadarOdometry::publishPath()
 {
-    path_msg_.header.frame_id = "map";
-    path_msg_.header.stamp = ros::Time::now();
-    geometry_msgs::PoseStamped pose_stamped;
-    pose_stamped.header.frame_id = "map";
-    std::cout << curr_time_ << std::endl;
+
     ros::Time time_obj = ros::Time().fromSec(curr_time_);
+    path_msg_.header.frame_id = mapFrame_;
+    path_msg_.header.stamp = time_obj;
+    geometry_msgs::PoseStamped pose_stamped;
+    pose_stamped.header.frame_id = mapFrame_;
     pose_stamped.header.stamp = time_obj;
     pose_stamped.pose.position.x = transformTobeMapped[0];
     pose_stamped.pose.position.y = transformTobeMapped[1];
@@ -139,6 +150,27 @@ void RadarOdometry::publishPath()
     pub_path_.publish(path_msg_);
 }
 
+void RadarOdometry::publishOdometry()
+{
+    nav_msgs::Odometry odom_msg;
+    odom_msg.header.frame_id = mapFrame_;
+    odom_msg.child_frame_id = baseFrame_;
+    odom_msg.header.stamp = ros::Time().fromSec(curr_time_);
+    odom_msg.pose.pose.position.x = transformTobeMapped[0];
+    odom_msg.pose.pose.position.y = transformTobeMapped[1];
+    odom_msg.pose.pose.position.z = transformTobeMapped[2];
+    Vector3f eulerAngle = Vector3f(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5]);
+    Quaternionf q;
+    q = AngleAxisf(eulerAngle[2], Vector3f::UnitZ()) *
+        AngleAxisf(eulerAngle[1], Vector3f::UnitY()) *
+        AngleAxisf(eulerAngle[0], Vector3f::UnitX());
+    odom_msg.pose.pose.orientation.x = q.x();
+    odom_msg.pose.pose.orientation.y = q.y();
+    odom_msg.pose.pose.orientation.z = q.z();
+    odom_msg.pose.pose.orientation.w = q.w();
+    pub_odometry_.publish(odom_msg);
+}
+
 
 int main(int argc, char  **argv)
 {
@@ -154,6 +186,7 @@ int main(int argc, char  **argv)
     {
         ros::spinOnce();
         if(radar_odometry.radar_buffer_.size() == 0) continue;
+        if(radar_odometry.notNew_) continue;
         radar_odometry.curr_cloud_ = radar_odometry.radar_buffer_.back().first.makeShared();
         radar_odometry.curr_time_ = radar_odometry.radar_buffer_.back().second;
         Eigen::Matrix4f curr_diff_pose = radar_odometry.matchByNDT();

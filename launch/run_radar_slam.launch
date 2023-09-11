@@ -7,13 +7,15 @@
 
     <node pkg="radar_slam" type="preprocess" name="preprocess" output="screen" />
     <node pkg="radar_slam" type="radarOdometry" name="radarOdometry" output="screen" />
+    <node pkg="radar_slam" type="imuPreintegration" name="imuPreintegration" output="screen" />
 
     <arg name="rviz" default="true" />
     <group if="$(arg rviz)">
         <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find radar_slam)/rviz/radar_slam.rviz" />
     </group>
 
-    <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/klose/data_bag/mscrad4r/URBAN_C0.bag" />
+    <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/klose/data_bag/mscrad4r/URBAN_C0.bag" /> -->
+    <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /mnt/g/data_bag/mscrad4r/URBAN_C0.bag" />
     <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Campus_1/campus1.bag" /> -->
     <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Parking_lot/parking_lot.bag" /> -->
     <!-- <node name="bag_player" pkg="rosbag" type="play" args="-r 1 /media/psf/Home/Downloads/data_bag/4D_radar_dataset/Campus_2/campus2.bag" /> -->

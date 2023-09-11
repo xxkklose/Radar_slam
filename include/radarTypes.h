@@ -28,33 +28,6 @@
 
 #include "ulit.h"
 
-// using nuScenes dataset
-#include "nuscenes2bag/RadarObject.h"
-#include "nuscenes2bag/RadarObjects.h"
-/*
-geometry_msgs/Vector3 pose：物体的位置信息，通常包括X、Y和Z坐标。
-
-uint8 dyn_prop：物体的动态属性，用于描述物体的运动状态（例如，静止、运动、加速等）。
-
-uint16 id：物体的唯一标识符，用于在不同帧中跟踪相同的物体。
-
-float32 rcs：物体的雷达反射截面，用于估计物体的大小或反射强度。
-
-float32 vx 和 float32 vy：物体的X和Y方向上的速度。
-
-float32 vx_comp 和 float32 vy_comp：物体的X和Y方向上的速度的组件。
-
-uint8 is_quality_valid：一个指示质量信息是否有效的标志。
-
-uint8 ambig_state：物体的模糊状态，通常用于处理多解模糊。
-
-uint8 x_rms 和 uint8 y_rms：X和Y方向上的速度估计的均方根误差。
-
-uint8 invalid_state：物体的状态，通常用于指示物体是否有效。
-
-uint8 pdh0：用于特定应用的其他信息。
-*/
-
 // using 4D Radar SLAM dataset
 #include "msgs_radar/RadarScanExtended.h"
 /*
@@ -203,15 +176,15 @@ public:
     Vector3d groundtruth_origin_;
     bool init_groundtruth_ = false;
 
-    // #ifdef 0 
-    // PointCloud::Ptr curr_cloud_ptr_;
-    // std::vector<RadarObject> curr_radar_cloud_;
-    // //after filtering
-    // PointCloud::Ptr processed_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
-    // std::vector<RadarObject> processed_radar_cloud_;
-    // //normal cloud
-    // pcl::PointCloud<pcl::Normal>::Ptr curr_cloud_normals_ptr_ = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
-    // #endif // USE_4D_RADAR_SLAM_DATASET
+    #if 0 
+      PointCloud::Ptr curr_cloud_ptr_;
+      std::vector<RadarObject> curr_radar_cloud_;
+      //after filtering
+      PointCloud::Ptr processed_cloud_ptr_ = PointCloud::Ptr(new PointCloud);
+      std::vector<RadarObject> processed_radar_cloud_;
+      //normal cloud
+      pcl::PointCloud<pcl::Normal>::Ptr curr_cloud_normals_ptr_ = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
+    #endif // USE_4D_RADAR_SLAM_DATASET
 
     RadarCloud::Ptr curr_cloud_ptr_ = RadarCloud::Ptr(new RadarCloud);
     ros::Time curr_cloud_time_;
@@ -268,11 +241,12 @@ public:
     void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg);
     void groundtruthCallback(const nav_msgs::Odometry::ConstPtr& msg);
     void radarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
-    void radar1Callback(const nuscenes2bag::RadarObjects::ConstPtr& msg);
     void radar2Callback(const msgs_radar::RadarScanExtended::ConstPtr& msg);
     void publishRadarCloud();
 
 private: 
+
+    //ros related
     ros::NodeHandle nh_;
     ros::Subscriber sub_radar_;
     ros::Subscriber sub_gps_;
@@ -280,9 +254,17 @@ private:
     ros::Publisher pub_radar_;
     ros::Publisher pub_gps_path_;
     ros::Publisher pub_groundtruth_path_;
+
+    std::string pointCloudTopic_;
+    std::string gpsTopic_;
+
+    std::string mapFrame_;
+    std::string odomFrame_;
+    std::string baseFrame_;
+    std::string radarFrame_;
+
     nav_msgs::Path path_; 
     nav_msgs::Path path_groundtruth_;
-    std::string pointCloudTopic_;
 
 };
 
@@ -296,11 +278,19 @@ public:
     ros::Subscriber sub_radar_;
     ros::Publisher pub_radar_;
     ros::Publisher pub_path_;
+    ros::Publisher pub_odometry_;
     nav_msgs::Path path_msg_;
+
+    std::string mapFrame_;
+    std::string odomFrame_;
+    std::string baseFrame_;
+    std::string radarFrame_;
 
     double keyframe_delta_trans_;
     double keyframe_delta_angle_;
     double keyframe_delta_time_;
+
+    bool notNew_ = false;
 
     float transformTobeMapped[6] = {0.0,0.0,0.0,0.0,0.0,0.0}; //当前帧的估计位姿
     float lastTransformTobeMapped[6] = {0.0,0.0,0.0,0.0,0.0,0.0}; //上一帧的估计位姿 
@@ -327,6 +317,7 @@ public:
     bool saveFrame();
     void publishRadarCloud();
     void publishPath();
+    void publishOdometry();
 
 private:
 

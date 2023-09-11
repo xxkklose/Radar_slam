@@ -3,11 +3,13 @@ preprocess:
 
 radar_slam:
 
+  sensor: oculii
+
   #Topics
   pointCloudTopic: /oculii_radar/point_cloud               # Point cloud data <!-- pc2_raw inlier_pc2 segmented -->
   imuTopic: /imu/data                         # IMU data
   odomTopic: /odom                   # IMU pre-preintegration odometry, same frequency as IMU
-  # gpsTopic: "/ublox/fix"                   # GPS odometry topic from navsat, see module_navsat.launch file
+  gpsTopic: /ublox_gps/fix                   # GPS odometry topic from navsat, see module_navsat.launch file
 
   #Frames
   RadarFrame: oculii
@@ -44,14 +46,14 @@ radar_slam:
   #                 0, -1, 0,
   #                 0, 0, -1]
   # extrinsicRPY: [1, 0, 0,
-  #                 0, -1, 0,
+  #                0, -1, 0,
   #                 0, 0, -1]
   extrinsicRot: [0.013976518654758, -0.999902319295810, -0.00003171112772766588,
                  -0.004676034937477, -0.00003364924546308485, -0.999989066399442,
                  0.999891392308440, 0.013976513481382, -0.004676043109061]
-  # extrinsicRPY: [0.999735807578, -0.0215215701795, -0.0081643477385,
-  #                -0.02148120581797, -0.9997581134183, 0.00502853428037,
-  #                -0.00826995351904, -0.0048509797951, -0.99995400578406]
+  extrinsicRPY: [0.013976518654758, -0.999902319295810, -0.00003171112772766588,
+                 -0.004676034937477, -0.00003364924546308485, -0.999989066399442,
+                 0.999891392308440, 0.013976513481382, -0.004676043109061]
   # extrinsicRot: [1, 0, 0,
   #                 0, 1, 0,
   #                 0, 0, 1]
