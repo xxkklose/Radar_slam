@@ -44,9 +44,9 @@ message(Eigen: ${EIGEN3_INCLUDE_DIRS})
 
 catkin_package(
     # CATKIN_DEPENDS roscpp rospy std_msgs message_generation nuscenes2bag tf2_ros
-    CATKIN_DEPENDS roscpp rospy std_msgs message_generation tf2_ros 
+    CATKIN_DEPENDS roscpp rospy std_msgs message_generation tf2_ros nav_msgs geometry_msgs sensor_msgs
     DEPENDS EIGEN3 PCL OpenCV Boost GTSAM
-    INCLUDE_DIRS
+    INCLUDE_DIRS include
 )
 
 add_executable(preprocess src/preprocess.cpp)
