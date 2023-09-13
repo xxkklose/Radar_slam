@@ -7,6 +7,7 @@
 
     <node pkg="radar_slam" type="preprocess" name="preprocess" output="screen" />
     <node pkg="radar_slam" type="radarOdometry" name="radarOdometry" output="screen" />
+    <!-- <node pkg="radar_slam" type="imuPreintegration" name="imuPreintegration" output="screen" launch-prefix="gdb -ex run -1-args" /> -->
     <node pkg="radar_slam" type="imuPreintegration" name="imuPreintegration" output="screen" />
 
     <arg name="rviz" default="true" />

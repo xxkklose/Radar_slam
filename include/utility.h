@@ -153,103 +153,102 @@ public:
 
     ParamServer()
     {
-        // std::cout << ">>>>>>>>>>>>>>>>>>>>>>>>> ParamServer Parameters <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
-        // nh.param<std::string>("/robot_id", robot_id, "roboat");
+        nh.param<std::string>("/robot_id", robot_id, "roboat");
 
-        // // 从param server中读取key为"radar_slam/pointCloudTopic"对应的参数，存pointCloudTopic，第三个参数是默认值
-        // // launch文件中定义<rosparam file="$(find radar_slam)/config/params.yaml" command="load" />，从yaml文件加载参数
-        // nh.param<std::string>("radar_slam/pointCloudTopic", pointCloudTopic, "points_raw");
-        // nh.param<std::string>("radar_slam/imuTopic", imuTopic, "imu_correct");
-        // nh.param<std::string>("radar_slam/odomTopic", odomTopic, "odometry/imu");
-        // nh.param<std::string>("radar_slam/gpsTopic", gpsTopic, "odometry/gps");
+        // 从param server中读取key为"radar_slam/pointCloudTopic"对应的参数，存pointCloudTopic，第三个参数是默认值
+        // launch文件中定义<rosparam file="$(find radar_slam)/config/params.yaml" command="load" />，从yaml文件加载参数
+        nh.param<std::string>("radar_slam/pointCloudTopic", pointCloudTopic, "points_raw");
+        nh.param<std::string>("radar_slam/imuTopic", imuTopic, "imu_correct");
+        nh.param<std::string>("radar_slam/odomTopic", odomTopic, "odometry/imu");
+        nh.param<std::string>("radar_slam/gpsTopic", gpsTopic, "odometry/gps");
 
-        // nh.param<std::string>("radar_slam/lidarFrame", lidarFrame, "base_link");
-        // nh.param<std::string>("radar_slam/baselinkFrame", baselinkFrame, "base_link");
-        // nh.param<std::string>("radar_slam/odometryFrame", odometryFrame, "odom");
-        // nh.param<std::string>("radar_slam/mapFrame", mapFrame, "map");
+        nh.param<std::string>("radar_slam/lidarFrame", lidarFrame, "base_link");
+        nh.param<std::string>("radar_slam/baselinkFrame", baselinkFrame, "base_link");
+        nh.param<std::string>("radar_slam/odometryFrame", odometryFrame, "odom");
+        nh.param<std::string>("radar_slam/mapFrame", mapFrame, "map");
 
-        // nh.param<bool>("radar_slam/useImuHeadingInitialization", useImuHeadingInitialization, false);
-        // nh.param<bool>("radar_slam/useGpsElevation", useGpsElevation, false);
-        // nh.param<float>("radar_slam/gpsCovThreshold", gpsCovThreshold, 2.0);
-        // nh.param<float>("radar_slam/poseCovThreshold", poseCovThreshold, 25.0);
+        nh.param<bool>("radar_slam/useImuHeadingInitialization", useImuHeadingInitialization, false);
+        nh.param<bool>("radar_slam/useGpsElevation", useGpsElevation, false);
+        nh.param<float>("radar_slam/gpsCovThreshold", gpsCovThreshold, 2.0);
+        nh.param<float>("radar_slam/poseCovThreshold", poseCovThreshold, 25.0);
 
-        // nh.param<bool>("radar_slam/savePCD", savePCD, false);
-        // nh.param<std::string>("radar_slam/savePCDDirectory", savePCDDirectory, "/Downloads/LOAM/");
+        nh.param<bool>("radar_slam/savePCD", savePCD, false);
+        nh.param<std::string>("radar_slam/savePCDDirectory", savePCDDirectory, "/Downloads/LOAM/");
 
-        // std::string sensorStr;
-        // nh.param<std::string>("radar_slam/sensor", sensorStr, "");
-        // if (sensorStr == "velodyne")
-        // {
-        //     sensor = SensorType::VELODYNE;
-        // }
-        // else if (sensorStr == "ouster")
-        // {
-        //     sensor = SensorType::OUSTER;
-        // }
-        // else if(sensorStr == "oculii")
-        // {
-        //     sensor = SensorType::OCULII;
-        // }
-        // else
-        // {
-        //     ROS_ERROR_STREAM(
-        //         "Invalid sensor type (must be either 'velodyne' or 'ouster'): " << sensorStr);
-        //     ros::shutdown();
-        // }
+        std::string sensorStr;
+        nh.param<std::string>("radar_slam/sensor", sensorStr, "");
+        if (sensorStr == "velodyne")
+        {
+            sensor = SensorType::VELODYNE;
+        }
+        else if (sensorStr == "ouster")
+        {
+            sensor = SensorType::OUSTER;
+        }
+        else if(sensorStr == "oculii")
+        {
+            sensor = SensorType::OCULII;
+        }
+        else
+        {
+            ROS_ERROR_STREAM(
+                "Invalid sensor type (must be either 'velodyne' or 'ouster'): " << sensorStr);
+            ros::shutdown();
+        }
 
-        // nh.param<int>("radar_slam/N_SCAN", N_SCAN, 16);
-        // nh.param<int>("radar_slam/Horizon_SCAN", Horizon_SCAN, 1800);
-        // nh.param<int>("radar_slam/downsampleRate", downsampleRate, 1);
-        // nh.param<float>("radar_slam/lidarMinRange", lidarMinRange, 1.0);
-        // nh.param<float>("radar_slam/lidarMaxRange", lidarMaxRange, 1000.0);
+        nh.param<int>("radar_slam/N_SCAN", N_SCAN, 16);
+        nh.param<int>("radar_slam/Horizon_SCAN", Horizon_SCAN, 1800);
+        nh.param<int>("radar_slam/downsampleRate", downsampleRate, 1);
+        nh.param<float>("radar_slam/lidarMinRange", lidarMinRange, 1.0);
+        nh.param<float>("radar_slam/lidarMaxRange", lidarMaxRange, 1000.0);
 
-        // nh.param<float>("radar_slam/imuAccNoise", imuAccNoise, 0.01);
-        // nh.param<float>("radar_slam/imuGyrNoise", imuGyrNoise, 0.001);
-        // nh.param<float>("radar_slam/imuAccBiasN", imuAccBiasN, 0.0002);
-        // nh.param<float>("radar_slam/imuGyrBiasN", imuGyrBiasN, 0.00003);
-        // nh.param<float>("radar_slam/imuGravity", imuGravity, 9.80511);
-        // nh.param<float>("radar_slam/imuRPYWeight", imuRPYWeight, 0.01);
-        // nh.param<vector<double>>("radar_slam/extrinsicRot", extRotV, vector<double>());
-        // nh.param<vector<double>>("radar_slam/extrinsicRPY", extRPYV, vector<double>());
-        // nh.param<vector<double>>("radar_slam/extrinsicTrans", extTransV, vector<double>());
-        // extRot = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extRotV.data(), 3, 3);
-        // extRPY = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extRPYV.data(), 3, 3);
-        // extTrans = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extTransV.data(), 3, 1);
-        // extQRPY = Eigen::Quaterniond(extRPY);
+        nh.param<float>("radar_slam/imuAccNoise", imuAccNoise, 0.01);
+        nh.param<float>("radar_slam/imuGyrNoise", imuGyrNoise, 0.001);
+        nh.param<float>("radar_slam/imuAccBiasN", imuAccBiasN, 0.0002);
+        nh.param<float>("radar_slam/imuGyrBiasN", imuGyrBiasN, 0.00003);
+        nh.param<float>("radar_slam/imuGravity", imuGravity, 9.80511);
+        nh.param<float>("radar_slam/imuRPYWeight", imuRPYWeight, 0.01);
+        nh.param<vector<double>>("radar_slam/extrinsicRot", extRotV, vector<double>());
+        nh.param<vector<double>>("radar_slam/extrinsicRPY", extRPYV, vector<double>());
+        nh.param<vector<double>>("radar_slam/extrinsicTrans", extTransV, vector<double>());
+        extRot = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extRotV.data(), 3, 3);
+        extRPY = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extRPYV.data(), 3, 3);
+        extTrans = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extTransV.data(), 3, 1);
+        extQRPY = Eigen::Quaterniond(extRPY);
 
-        // nh.param<float>("radar_slam/edgeThreshold", edgeThreshold, 0.1);
-        // nh.param<float>("radar_slam/surfThreshold", surfThreshold, 0.1);
-        // nh.param<int>("radar_slam/edgeFeatureMinValidNum", edgeFeatureMinValidNum, 10);
-        // nh.param<int>("radar_slam/surfFeatureMinValidNum", surfFeatureMinValidNum, 100);
+        nh.param<float>("radar_slam/edgeThreshold", edgeThreshold, 0.1);
+        nh.param<float>("radar_slam/surfThreshold", surfThreshold, 0.1);
+        nh.param<int>("radar_slam/edgeFeatureMinValidNum", edgeFeatureMinValidNum, 10);
+        nh.param<int>("radar_slam/surfFeatureMinValidNum", surfFeatureMinValidNum, 100);
 
-        // nh.param<float>("radar_slam/odometrySurfLeafSize", odometrySurfLeafSize, 0.2);
-        // nh.param<float>("radar_slam/mappingCornerLeafSize", mappingCornerLeafSize, 0.2);
-        // nh.param<float>("radar_slam/mappingSurfLeafSize", mappingSurfLeafSize, 0.2);
+        nh.param<float>("radar_slam/odometrySurfLeafSize", odometrySurfLeafSize, 0.2);
+        nh.param<float>("radar_slam/mappingCornerLeafSize", mappingCornerLeafSize, 0.2);
+        nh.param<float>("radar_slam/mappingSurfLeafSize", mappingSurfLeafSize, 0.2);
 
-        // nh.param<float>("radar_slam/z_tollerance", z_tollerance, FLT_MAX);
-        // nh.param<float>("radar_slam/rotation_tollerance", rotation_tollerance, FLT_MAX);
+        nh.param<float>("radar_slam/z_tollerance", z_tollerance, FLT_MAX);
+        nh.param<float>("radar_slam/rotation_tollerance", rotation_tollerance, FLT_MAX);
 
-        // nh.param<int>("radar_slam/numberOfCores", numberOfCores, 2);
-        // nh.param<double>("radar_slam/mappingProcessInterval", mappingProcessInterval, 0.15);
+        nh.param<int>("radar_slam/numberOfCores", numberOfCores, 2);
+        nh.param<double>("radar_slam/mappingProcessInterval", mappingProcessInterval, 0.15);
 
-        // nh.param<float>("radar_slam/surroundingkeyframeAddingDistThreshold", surroundingkeyframeAddingDistThreshold, 1.0);
-        // nh.param<float>("radar_slam/surroundingkeyframeAddingAngleThreshold", surroundingkeyframeAddingAngleThreshold, 0.2);
-        // nh.param<float>("radar_slam/surroundingKeyframeDensity", surroundingKeyframeDensity, 1.0);
-        // nh.param<float>("radar_slam/surroundingKeyframeSearchRadius", surroundingKeyframeSearchRadius, 50.0);
+        nh.param<float>("radar_slam/surroundingkeyframeAddingDistThreshold", surroundingkeyframeAddingDistThreshold, 1.0);
+        nh.param<float>("radar_slam/surroundingkeyframeAddingAngleThreshold", surroundingkeyframeAddingAngleThreshold, 0.2);
+        nh.param<float>("radar_slam/surroundingKeyframeDensity", surroundingKeyframeDensity, 1.0);
+        nh.param<float>("radar_slam/surroundingKeyframeSearchRadius", surroundingKeyframeSearchRadius, 50.0);
 
-        // nh.param<bool>("radar_slam/loopClosureEnableFlag", loopClosureEnableFlag, false);
-        // nh.param<float>("radar_slam/loopClosureFrequency", loopClosureFrequency, 1.0);
-        // nh.param<int>("radar_slam/surroundingKeyframeSize", surroundingKeyframeSize, 50);
-        // nh.param<float>("radar_slam/historyKeyframeSearchRadius", historyKeyframeSearchRadius, 10.0);
-        // nh.param<float>("radar_slam/historyKeyframeSearchTimeDiff", historyKeyframeSearchTimeDiff, 30.0);
-        // nh.param<int>("radar_slam/historyKeyframeSearchNum", historyKeyframeSearchNum, 25);
-        // nh.param<float>("radar_slam/historyKeyframeFitnessScore", historyKeyframeFitnessScore, 0.3);
+        nh.param<bool>("radar_slam/loopClosureEnableFlag", loopClosureEnableFlag, false);
+        nh.param<float>("radar_slam/loopClosureFrequency", loopClosureFrequency, 1.0);
+        nh.param<int>("radar_slam/surroundingKeyframeSize", surroundingKeyframeSize, 50);
+        nh.param<float>("radar_slam/historyKeyframeSearchRadius", historyKeyframeSearchRadius, 10.0);
+        nh.param<float>("radar_slam/historyKeyframeSearchTimeDiff", historyKeyframeSearchTimeDiff, 30.0);
+        nh.param<int>("radar_slam/historyKeyframeSearchNum", historyKeyframeSearchNum, 25);
+        nh.param<float>("radar_slam/historyKeyframeFitnessScore", historyKeyframeFitnessScore, 0.3);
 
-        // nh.param<float>("radar_slam/globalMapVisualizationSearchRadius", globalMapVisualizationSearchRadius, 1e3);
-        // nh.param<float>("radar_slam/globalMapVisualizationPoseDensity", globalMapVisualizationPoseDensity, 10.0);
-        // nh.param<float>("radar_slam/globalMapVisualizationLeafSize", globalMapVisualizationLeafSize, 1.0);
+        nh.param<float>("radar_slam/globalMapVisualizationSearchRadius", globalMapVisualizationSearchRadius, 1e3);
+        nh.param<float>("radar_slam/globalMapVisualizationPoseDensity", globalMapVisualizationPoseDensity, 10.0);
+        nh.param<float>("radar_slam/globalMapVisualizationLeafSize", globalMapVisualizationLeafSize, 1.0);
 
-        // usleep(100);
+        usleep(100);
     }
 
     /**

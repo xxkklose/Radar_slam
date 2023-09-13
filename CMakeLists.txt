@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 project(radar_slam)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "-std=c++14 -O3")
+# set(CMAKE_CXX_FLAGS "-std=c++14 -O3")
+# set(CMAKE_CXX_FLAGS "-std=c++14 -O3 -funwind-tables -pthread -ggdb -g -march=native")
+set(CMAKE_CXX_FLAGS "-std=c++14 -O3 -g ")
 
 # add_subdirectory(include/jsk_recognition_msgs)
 

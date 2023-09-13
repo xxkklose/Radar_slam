@@ -272,7 +272,6 @@ public:
     */
     IMUPreintegration()
     {
-        std::cout << ">>>>>>>>>>>>>>>>>>>>>>>>> IMU Preintegration Parameters <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
         // 订阅imu原始数据，用下面因子图优化的结果，施加两帧之间的imu预计分量，预测每一时刻（imu频率）的imu里程计
         subImu      = nh.subscribe<sensor_msgs::Imu>  (imuTopic,                   2000, &IMUPreintegration::imuHandler,      this, ros::TransportHints().tcpNoDelay());
         // 订阅激光里程计，来自mapOptimization，用两帧之间的imu预计分量构建因子图，优化当前帧位姿（这个位姿仅用于更新每时刻的imu里程计，以及下一次因子图优化）
@@ -292,19 +291,19 @@ public:
 
         // 噪声先验
         priorPoseNoise  = gtsam::noiseModel::Diagonal::Sigmas((gtsam::Vector(6) << 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2).finished()); // rad,rad,rad,m, m, m
-        priorVelNoise   = gtsam::noiseModel::Isotropic::Sigma(3, 1e4); // m/s
-        priorBiasNoise  = gtsam::noiseModel::Isotropic::Sigma(6, 1e-3); // 1e-2 ~ 1e-3 seems to be good
+        // priorVelNoise   = gtsam::noiseModel::Isotropic::Sigma(3, 1e4); // m/s
+        // priorBiasNoise  = gtsam::noiseModel::Isotropic::Sigma(6, 1e-3); // 1e-2 ~ 1e-3 seems to be good
         // 激光里程计scan-to-map优化过程中发生退化，则选择一个较大的协方差
 
-        std::cout << "priorPoseNoise: " << priorPoseNoise << std::endl;
+        // std::cout << "priorPoseNoise: " << priorPoseNoise << std::endl;
         // correctionNoise = gtsam::noiseModel::Diagonal::Sigmas((gtsam::Vector(6) << 0.05, 0.05, 0.05, 0.1, 0.1, 0.1).finished()); // rad,rad,rad,m, m, m
         // correctionNoise2 = gtsam::noiseModel::Diagonal::Sigmas((gtsam::Vector(6) << 1, 1, 1, 1, 1, 1).finished()); // rad,rad,rad,m, m, m
-        noiseModelBetweenBias = (gtsam::Vector(6) << imuAccBiasN, imuAccBiasN, imuAccBiasN, imuGyrBiasN, imuGyrBiasN, imuGyrBiasN).finished();
+        // noiseModelBetweenBias = (gtsam::Vector(6) << imuAccBiasN, imuAccBiasN, imuAccBiasN, imuGyrBiasN, imuGyrBiasN, imuGyrBiasN).finished();
         
         // imu预积分器，用于预测每一时刻（imu频率）的imu里程计（转到lidar系了，与激光里程计同一个系）
-        // imuIntegratorImu_ = new gtsam::PreintegratedImuMeasurements(p, prior_imu_bias); // setting up the IMU integration for IMU message thread
+        imuIntegratorImu_ = new gtsam::PreintegratedImuMeasurements(p, prior_imu_bias); // setting up the IMU integration for IMU message thread
         // // imu预积分器，用于因子图优化
-        // imuIntegratorOpt_ = new gtsam::PreintegratedImuMeasurements(p, prior_imu_bias); // setting up the IMU integration for optimization            
+        imuIntegratorOpt_ = new gtsam::PreintegratedImuMeasurements(p, prior_imu_bias); // setting up the IMU integration for optimization            
     }
 
     /**
@@ -569,54 +568,54 @@ public:
     */
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imu_raw)
     {
-    //     std::lock_guard<std::mutex> lock(mtx);
-    //     // imu原始测量数据转换到lidar系，加速度、角速度、RPY
-    //     sensor_msgs::Imu thisImu = imuConverter(*imu_raw);
+        std::lock_guard<std::mutex> lock(mtx);
+        // imu原始测量数据转换到lidar系，加速度、角速度、RPY
+        sensor_msgs::Imu thisImu = imuConverter(*imu_raw);
 
-    //     // 添加当前帧imu数据到队列
-    //     imuQueOpt.push_back(thisImu);
-    //     imuQueImu.push_back(thisImu);
+        // 添加当前帧imu数据到队列
+        imuQueOpt.push_back(thisImu);
+        imuQueImu.push_back(thisImu);
 
-    //     // 要求上一次imu因子图优化执行成功，确保更新了上一帧（激光里程计帧）的状态、偏置，预积分重新计算了
-    //     if (doneFirstOpt == false)
-    //         return;
+        // // 要求上一次imu因子图优化执行成功，确保更新了上一帧（激光里程计帧）的状态、偏置，预积分重新计算了//TODO
+        // if (doneFirstOpt == false)
+        //     return;
 
-    //     double imuTime = ROS_TIME(&thisImu);
-    //     double dt = (lastImuT_imu < 0) ? (1.0 / 500.0) : (imuTime - lastImuT_imu);
-    //     lastImuT_imu = imuTime;
+        double imuTime = ROS_TIME(&thisImu);
+        double dt = (lastImuT_imu < 0) ? (1.0 / 500.0) : (imuTime - lastImuT_imu);
+        lastImuT_imu = imuTime;
 
-    //     // imu预积分器添加一帧imu数据，注：这个预积分器的起始时刻是上一帧激光里程计时刻
-    //     imuIntegratorImu_->integrateMeasurement(gtsam::Vector3(thisImu.linear_acceleration.x, thisImu.linear_acceleration.y, thisImu.linear_acceleration.z),
-    //                                             gtsam::Vector3(thisImu.angular_velocity.x,    thisImu.angular_velocity.y,    thisImu.angular_velocity.z), dt);
+        // imu预积分器添加一帧imu数据，注：这个预积分器的起始时刻是上一帧激光里程计时刻
+        imuIntegratorImu_->integrateMeasurement(gtsam::Vector3(thisImu.linear_acceleration.x, thisImu.linear_acceleration.y, thisImu.linear_acceleration.z),
+                                                gtsam::Vector3(thisImu.angular_velocity.x,    thisImu.angular_velocity.y,    thisImu.angular_velocity.z), dt);
+        std::cout<<"imuIntegratorImu_->deltaTij(): "<<imuIntegratorImu_->deltaTij()<<std::endl;
+        // 用上一帧激光里程计时刻对应的状态、偏置，施加从该时刻开始到当前时刻的imu预计分量，得到当前时刻的状态
+        gtsam::NavState currentState = imuIntegratorImu_->predict(prevStateOdom, prevBiasOdom);
 
-    //     // 用上一帧激光里程计时刻对应的状态、偏置，施加从该时刻开始到当前时刻的imu预计分量，得到当前时刻的状态
-    //     gtsam::NavState currentState = imuIntegratorImu_->predict(prevStateOdom, prevBiasOdom);
+        // 发布imu里程计（转到lidar系，与激光里程计同一个系）
+        nav_msgs::Odometry odometry;
+        odometry.header.stamp = thisImu.header.stamp;
+        odometry.header.frame_id = mapFrame;
+        odometry.child_frame_id = "odom_imu";
 
-    //     // 发布imu里程计（转到lidar系，与激光里程计同一个系）
-    //     nav_msgs::Odometry odometry;
-    //     odometry.header.stamp = thisImu.header.stamp;
-    //     odometry.header.frame_id = odometryFrame;
-    //     odometry.child_frame_id = "odom_imu";
+        // 变换到lidar系
+        gtsam::Pose3 imuPose = gtsam::Pose3(currentState.quaternion(), currentState.position());
+        gtsam::Pose3 lidarPose = imuPose.compose(imu2Lidar);
 
-    //     // 变换到lidar系
-    //     gtsam::Pose3 imuPose = gtsam::Pose3(currentState.quaternion(), currentState.position());
-    //     gtsam::Pose3 lidarPose = imuPose.compose(imu2Lidar);
-
-    //     odometry.pose.pose.position.x = lidarPose.translation().x();
-    //     odometry.pose.pose.position.y = lidarPose.translation().y();
-    //     odometry.pose.pose.position.z = lidarPose.translation().z();
-    //     odometry.pose.pose.orientation.x = lidarPose.rotation().toQuaternion().x();
-    //     odometry.pose.pose.orientation.y = lidarPose.rotation().toQuaternion().y();
-    //     odometry.pose.pose.orientation.z = lidarPose.rotation().toQuaternion().z();
-    //     odometry.pose.pose.orientation.w = lidarPose.rotation().toQuaternion().w();
+        odometry.pose.pose.position.x = lidarPose.translation().x();
+        odometry.pose.pose.position.y = lidarPose.translation().y();
+        odometry.pose.pose.position.z = lidarPose.translation().z();
+        odometry.pose.pose.orientation.x = lidarPose.rotation().toQuaternion().x();
+        odometry.pose.pose.orientation.y = lidarPose.rotation().toQuaternion().y();
+        odometry.pose.pose.orientation.z = lidarPose.rotation().toQuaternion().z();
+        odometry.pose.pose.orientation.w = lidarPose.rotation().toQuaternion().w();
         
-    //     odometry.twist.twist.linear.x = currentState.velocity().x();
-    //     odometry.twist.twist.linear.y = currentState.velocity().y();
-    //     odometry.twist.twist.linear.z = currentState.velocity().z();
-    //     odometry.twist.twist.angular.x = thisImu.angular_velocity.x + prevBiasOdom.gyroscope().x();
-    //     odometry.twist.twist.angular.y = thisImu.angular_velocity.y + prevBiasOdom.gyroscope().y();
-    //     odometry.twist.twist.angular.z = thisImu.angular_velocity.z + prevBiasOdom.gyroscope().z();
-    //     pubImuOdometry.publish(odometry);
+        odometry.twist.twist.linear.x = currentState.velocity().x();
+        odometry.twist.twist.linear.y = currentState.velocity().y();
+        odometry.twist.twist.linear.z = currentState.velocity().z();
+        odometry.twist.twist.angular.x = thisImu.angular_velocity.x + prevBiasOdom.gyroscope().x();
+        odometry.twist.twist.angular.y = thisImu.angular_velocity.y + prevBiasOdom.gyroscope().y();
+        odometry.twist.twist.angular.z = thisImu.angular_velocity.z + prevBiasOdom.gyroscope().z();
+        pubImuOdometry.publish(odometry);
     }
 };
 
@@ -631,8 +630,19 @@ int main(int argc, char** argv)
 
     ROS_INFO("\033[1;32m----> IMU Preintegration Started.\033[0m");
     
-    ros::MultiThreadedSpinner spinner(4);
-    spinner.spin();
-    
+    // ros::MultiThreadedSpinner spinner(4);
+    // spinner.spin();
+    // int count = 0;
+    // while(count < 1000000){
+    //     ros::spinOnce();
+    //     count++;
+    // }
+    // ros::spin();
+    while(ros::ok())
+    {
+        ros::spinOnce();
+        //sleep 100ms
+        usleep(100000);
+    }
     return 0;
 }
