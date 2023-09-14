@@ -341,26 +341,26 @@ public:
     */
     void odometryHandler(const nav_msgs::Odometry::ConstPtr& odomMsg)
     {
-        // std::lock_guard<std::mutex> lock(mtx);
-        // // 当前帧激光里程计时间戳
-        // double currentCorrectionTime = ROS_TIME(odomMsg);
+        std::lock_guard<std::mutex> lock(mtx);
+        // 当前帧激光里程计时间戳
+        double currentCorrectionTime = ROS_TIME(odomMsg);
 
-        // // 确保imu优化队列中有imu数据进行预积分
-        // if (imuQueOpt.empty())
-        //     return;
+        // 确保imu优化队列中有imu数据进行预积分
+        if (imuQueOpt.empty())
+            return;
 
-        // // 当前帧激光位姿，来自scan-to-map匹配、因子图优化后的位姿
-        // float p_x = odomMsg->pose.pose.position.x;
-        // float p_y = odomMsg->pose.pose.position.y;
-        // float p_z = odomMsg->pose.pose.position.z;
-        // float r_x = odomMsg->pose.pose.orientation.x;
-        // float r_y = odomMsg->pose.pose.orientation.y;
-        // float r_z = odomMsg->pose.pose.orientation.z;
-        // float r_w = odomMsg->pose.pose.orientation.w;
-        // bool degenerate = (int)odomMsg->pose.covariance[0] == 1 ? true : false;
-        // gtsam::Pose3 lidarPose = gtsam::Pose3(gtsam::Rot3::Quaternion(r_w, r_x, r_y, r_z), gtsam::Point3(p_x, p_y, p_z));
+        // 当前帧激光位姿，来自scan-to-map匹配、因子图优化后的位姿
+        float p_x = odomMsg->pose.pose.position.x;
+        float p_y = odomMsg->pose.pose.position.y;
+        float p_z = odomMsg->pose.pose.position.z;
+        float r_x = odomMsg->pose.pose.orientation.x;
+        float r_y = odomMsg->pose.pose.orientation.y;
+        float r_z = odomMsg->pose.pose.orientation.z;
+        float r_w = odomMsg->pose.pose.orientation.w;
+        bool degenerate = (int)odomMsg->pose.covariance[0] == 1 ? true : false;
+        gtsam::Pose3 lidarPose = gtsam::Pose3(gtsam::Rot3::Quaternion(r_w, r_x, r_y, r_z), gtsam::Point3(p_x, p_y, p_z));
 
-
+        std::cout << "odometryHandler: " << std::endl;
         // // 0. 系统初始化，第一帧
         // if (systemInitialized == false)
         // {
@@ -587,7 +587,6 @@ public:
         // imu预积分器添加一帧imu数据，注：这个预积分器的起始时刻是上一帧激光里程计时刻
         imuIntegratorImu_->integrateMeasurement(gtsam::Vector3(thisImu.linear_acceleration.x, thisImu.linear_acceleration.y, thisImu.linear_acceleration.z),
                                                 gtsam::Vector3(thisImu.angular_velocity.x,    thisImu.angular_velocity.y,    thisImu.angular_velocity.z), dt);
-        std::cout<<"imuIntegratorImu_->deltaTij(): "<<imuIntegratorImu_->deltaTij()<<std::endl;
         // 用上一帧激光里程计时刻对应的状态、偏置，施加从该时刻开始到当前时刻的imu预计分量，得到当前时刻的状态
         gtsam::NavState currentState = imuIntegratorImu_->predict(prevStateOdom, prevBiasOdom);
 
@@ -630,19 +629,8 @@ int main(int argc, char** argv)
 
     ROS_INFO("\033[1;32m----> IMU Preintegration Started.\033[0m");
     
-    // ros::MultiThreadedSpinner spinner(4);
-    // spinner.spin();
-    // int count = 0;
-    // while(count < 1000000){
-    //     ros::spinOnce();
-    //     count++;
-    // }
-    // ros::spin();
-    while(ros::ok())
-    {
-        ros::spinOnce();
-        //sleep 100ms
-        usleep(100000);
-    }
+    ros::MultiThreadedSpinner spinner(4);
+    spinner.spin();
+
     return 0;
 }
